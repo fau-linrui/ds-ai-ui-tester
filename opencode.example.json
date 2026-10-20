@@ -1,0 +1,30 @@
+{
+  "$schema": "https://opencode.ai/config.json",
+  "mcp": {
+    "playwright": {
+      "type": "local",
+      "command": ["npx", "-y", "@playwright/mcp@latest", "--headless", "--isolated"],
+      "enabled": true
+    }
+  },
+  "agent": {
+    "explorer": {
+      "description": "探索页面结构，只产出 .snap/*.json 页面地图，不写用例、不改代码",
+      "mode": "subagent",
+      "prompt": "你是 explorer。用 playwright MCP 的 browser_snapshot 摸清页面：有哪些可交互元素、关键区域、状态变化。产出 .snap/<页面>.json：{url, title, nodes:[{key, role, name, testid, value, disabled}], flows:[...]}。禁止写 spec/ 和 tests/。凡是 a11y 树里没有名字的元素，记进 gaps 数组，那是需要前端补 testid 的清单。",
+      "tools": { "read": true, "write": true, "edit": false, "bash": true }
+    },
+    "author": {
+      "description": "根据页面地图和需求，写结构化用例 JSON",
+      "mode": "subagent",
+      "prompt": "你是 author。读 .snap/*.json 和需求，写 spec/cases/<ID>.json，严格遵守 spec/case.schema.json。禁止出现 CSS/XPath；target 只用 testid > role+name > label > text。期望值必须有出处，找不到就停下问人。禁止修改 tests/。",
+      "tools": { "read": true, "write": true, "edit": true, "bash": false }
+    },
+    "verifier": {
+      "description": "执行测试并对失败做四分类，不改代码",
+      "mode": "subagent",
+      "prompt": "你是 verifier。跑 npx playwright test，失败后读 trace/console/network，把每条失败分类为 product_bug / case_error / env / flaky，写 .snap/triage.json。你只能改 triage.json，禁止改 spec/ 和 tests/。同一用例重试 3 次仍失败就停下来等人。",
+      "tools": { "read": true, "write": true, "edit": false, "bash": true }
+    }
+  }
+}

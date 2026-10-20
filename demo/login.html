@@ -1,0 +1,84 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8" />
+  <title>订单查询 - 演示页</title>
+</head>
+<body>
+  <header>
+    <h1>订单控制台</h1>
+    <nav aria-label="主导航">
+      <a href="#orders" aria-current="page">订单</a>
+      <a href="#users">用户</a>
+    </nav>
+  </header>
+
+  <main>
+    <form id="query-form" aria-labelledby="form-title">
+      <h2 id="form-title">按手机号查询订单</h2>
+
+      <label for="phone">手机号</label>
+      <input id="phone" name="phone" type="tel" placeholder="11 位手机号"
+             aria-describedby="phone-hint" required />
+      <p id="phone-hint">仅支持中国大陆号码</p>
+
+      <label for="status">订单状态</label>
+      <select id="status" name="status">
+        <option value="">全部</option>
+        <option value="paid">已支付</option>
+        <option value="shipped">已发货</option>
+      </select>
+
+      <button type="submit" data-testid="query-submit">查询</button>
+      <button type="button" id="reset">重置</button>
+    </form>
+
+    <section aria-live="polite" id="result" hidden>
+      <h2>查询结果</h2>
+      <p id="result-summary"></p>
+      <ul id="order-list" data-testid="order-list"></ul>
+    </section>
+
+    <p id="error" role="alert" hidden></p>
+  </main>
+
+  <script>
+    const form = document.getElementById('query-form')
+    const result = document.getElementById('result')
+    const list = document.getElementById('order-list')
+    const summary = document.getElementById('result-summary')
+    const error = document.getElementById('error')
+
+    form.addEventListener('submit', (e) => {
+      e.preventDefault()
+      const phone = document.getElementById('phone').value.trim()
+      error.hidden = true
+      if (!/^1\d{10}$/.test(phone)) {
+        result.hidden = true
+        error.textContent = '手机号格式不正确，请输入 11 位号码'
+        error.hidden = false
+        return
+      }
+      setTimeout(() => {
+        const rows = [
+          { id: 'A1001', status: '已支付', amount: '¥128.00' },
+          { id: 'A1002', status: '已发货', amount: '¥59.90' },
+        ]
+        list.replaceChildren(...rows.map(r => {
+          const li = document.createElement('li')
+          li.innerHTML = `<span>${r.id}</span> <span>${r.status}</span> <span>${r.amount}</span>`
+          return li
+        }))
+        summary.textContent = `共 ${rows.length} 条订单`
+        result.hidden = false
+      }, 300)
+    })
+
+    document.getElementById('reset').addEventListener('click', () => {
+      form.reset()
+      result.hidden = true
+      error.hidden = true
+    })
+  </script>
+</body>
+</html>
