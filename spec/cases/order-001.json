@@ -7,10 +7,10 @@
   "risk": "查询主流程不通，或结果条数/金额展示错误",
   "steps": [
     { "action": "goto", "url": "/demo/login.html" },
-    { "action": "fill", "target": { "label": "手机号" }, "value": "13800138000" },
+    { "action": "fill", "target": { "label": "手机号", "exact": true }, "value": "13800138000" },
     { "action": "click", "target": { "testid": "query-submit" } },
     { "action": "waitFor", "target": { "testid": "order-list" } },
-    { "action": "expect", "target": { "testid": "order-list" }, "assertion": { "type": "count", "value": 2 } },
+    { "action": "expect", "target": { "role": "listitem" }, "assertion": { "type": "count", "value": 2 } },
     { "action": "expect", "target": { "text": "共 2 条订单" }, "assertion": { "type": "visible" } },
     { "action": "expect", "target": { "text": "¥128.00" }, "assertion": { "type": "visible" } }
   ]

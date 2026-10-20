@@ -1,0 +1,13 @@
+{
+  "id": "TH-003",
+  "title": "顶部导航「问答」跳转正确",
+  "requirement": "TH-NAV-QUESTIONS",
+  "priority": "P1",
+  "tags": ["nav"],
+  "risk": "导航链接指向错误路由",
+  "steps": [
+    { "action": "goto", "url": "/" },
+    { "action": "click", "target": { "role": "link", "name": "问答", "exact": true, "href": "/questions" } },
+    { "action": "expectUrl", "contains": "/questions" }
+  ]
+}

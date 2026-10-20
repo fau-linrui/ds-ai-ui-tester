@@ -46,6 +46,8 @@
         "testid": { "type": "string" },
         "role": { "type": "string" },
         "name": { "type": "string" },
+        "exact": { "type": "boolean", "description": "name 精确匹配；用于避免『社区』命中『社区学堂』这类子串误匹配" },
+        "href": { "type": "string", "description": "链接地址，用于同名链接消歧（如顶部导航「问答」与热门节点「问答」）" },
         "label": { "type": "string" },
         "placeholder": { "type": "string" },
         "text": { "type": "string" }

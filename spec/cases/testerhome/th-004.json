@@ -1,0 +1,14 @@
+{
+  "id": "TH-004",
+  "title": "首页搜索框可见且可输入",
+  "requirement": "TH-SEARCH-INPUT",
+  "priority": "P1",
+  "tags": ["search"],
+  "risk": "搜索入口渲染异常，用户无法检索内容",
+  "steps": [
+    { "action": "goto", "url": "/" },
+    { "action": "expect", "target": { "role": "textbox", "name": "搜索", "exact": true }, "assertion": { "type": "visible" } },
+    { "action": "fill", "target": { "role": "textbox", "name": "搜索", "exact": true }, "value": "appium" },
+    { "action": "expect", "target": { "role": "textbox", "name": "搜索", "exact": true }, "assertion": { "type": "value", "value": "appium" } }
+  ]
+}

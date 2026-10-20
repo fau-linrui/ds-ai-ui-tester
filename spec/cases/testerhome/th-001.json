@@ -1,0 +1,15 @@
+{
+  "id": "TH-001",
+  "title": "首页核心区块正常渲染",
+  "requirement": "TH-HOME-RENDER",
+  "priority": "P0",
+  "tags": ["smoke", "home"],
+  "risk": "首页白屏，或最新帖子 / 统计信息区块未渲染",
+  "steps": [
+    { "action": "goto", "url": "/" },
+    { "action": "expect", "target": { "role": "heading", "name": "测试之家", "exact": true }, "assertion": { "type": "visible" } },
+    { "action": "expect", "target": { "text": "最新帖子" }, "assertion": { "type": "visible" } },
+    { "action": "expect", "target": { "text": "统计信息" }, "assertion": { "type": "visible" } },
+    { "action": "expect", "target": { "text": "社区会员" }, "assertion": { "type": "visible" } }
+  ]
+}

@@ -1,7 +1,10 @@
-node_modules/
-.snap/
-tests-results/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.venv/
+venv/
 test-results/
 playwright-report/
+.snap/
 auth.json
-.pw-browsers/
+node_modules/

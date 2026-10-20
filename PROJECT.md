@@ -1,6 +1,7 @@
-# 纯文本大模型驱动的 UI 自动化用例框架
+# text-only-e2e（pytest + Playwright）
 
-> 项目文档 · v0.2 · 2026-10
+> 项目文档 · v0.3 · 2026-10
+> 技术栈：Python 3.9+ / pytest / Playwright Python
 > 适用场景：内网环境、仅可使用纯文本大模型、需生成可维护的 UI 自动化用例资产
 
 ---
@@ -85,10 +86,10 @@ UI 自动化拆开是四件事：**感知 → 决策 → 执行 → 判定**。�
         │
         ▼
   spec/cases/*.json          ← 模型唯一被允许写的地方（意图级，无选择器）
-        │  render.mjs
+        │  render.py
         ▼
-  tests/*.spec.ts            ← 生成物，禁止手改
-        │  playwright test
+  tests/test_*.py            ← 生成物，禁止手改
+        │  pytest
         ▼
   report + trace             ← 失败证据
         │  triage（人工或 agent）
@@ -100,28 +101,30 @@ UI 自动化拆开是四件事：**感知 → 决策 → 执行 → 判定**。�
 
 | 路径 | 作用 | 谁写 |
 |---|---|---|
-| `tools/snapshot.mjs` | 稳定 key 的页面快照 + 增量 diff | 人 / 维护者 |
-| `tools/render.mjs` | 用例 JSON → Playwright spec，含 `--check` | 人 / 维护者 |
-| `tools/preflight.mjs` | 环境自检，退出码即结论 | 人 / 维护者 |
-| `tools/serve.mjs` | 零依赖静态服务器（演示 / 本地调试） | 人 / 维护者 |
+| `tools/snapshot.py` | 稳定 key 的页面快照 + 增量 diff | 人 / 维护者 |
+| `tools/render.py` | 用例 JSON → pytest + Playwright 测试函数，含 `--check` | 人 / 维护者 |
+| `tools/preflight.py` | 环境自检，退出码即结论 | 人 / 维护者 |
+| `tools/serve.py` | 零依赖静态服务器（演示 / 本地调试） | 人 / 维护者 |
+| `conftest.py` | `base_url` / `AUTH_STATE` 两个 fixture | 人 |
 | `spec/case.schema.json` | 用例契约，改这里等于改语言 | 人 |
 | `spec/cases/*.json` | 用例资产 | agent → 人评审 |
-| `tests/*.spec.ts` | 可执行测试 | **仅 render 生成** |
+| `tests/test_*.py` | 可执行测试 | **仅 render 生成** |
 | `AGENTS.md` | 给 agent 的硬约束 | 人 |
 | `AGENT-CAPABILITIES.md` | 换 agent 时的能力核对表 | 人 |
 
 ### 4.3 三个工具的设计要点
 
-**snapshot.mjs**
+**snapshot.py**
 产出稳定 key，优先级 `tid:<data-testid>` > `<role>:<name>`，重复时追加 `#2`。**绝不用 DOM 序号做 key**——序号每次快照都会变，模型上一轮记的引用下一轮就错位，而这种错误极其隐蔽（点了"看起来对"的另一个按钮，测试却过了）。
 
-**render.mjs**
-把语义 target 翻译成 Playwright 定位器，四级优先级：
-`getByTestId` > `getByRole(role, {name})` > `getByLabel` > `getByText`。
+**render.py**
+把语义 target 翻译成 Playwright Python 定位器，四级优先级：
+`get_by_test_id` > `get_by_role(role, name=..., exact=...)` > `get_by_label` > `get_by_text`；
+链接支持 `href` 消歧。
 `--check` 模式用于检测 `tests/` 是否被手改：重新渲染到内存，与磁盘比对，不一致即退出码 1。
 
-**preflight.mjs**
-检查 Node 版本、playwright 包、浏览器能否真正启动、`BASE_URL` 可达、工作区可写。退出码 0/1，让 agent 读码而不是读自然语言。
+**preflight.py**
+检查 Python 版本、playwright 包、浏览器能否真正启动、`BASE_URL` 可达、工作区可写。退出码 0/1，让 agent 读码而不是读自然语言。
 
 ---
 
@@ -177,11 +180,11 @@ UI 自动化拆开是四件事：**感知 → 决策 → 执行 → 判定**。�
 ### 6.1 标准流程（agent 可编排）
 
 ```bash
-node tools/preflight.mjs                       # 0. 自检
-node tools/snapshot.mjs --url ... --out .snap/x.json   # 1. 感知
+python tools/preflight.py                              # 0. 自检
+python tools/snapshot.py --url ... --out .snap/x.json  # 1. 感知
 # 2. 写 spec/cases/xxx.json
-node tools/render.mjs --all spec/cases         # 3. 生成
-npx playwright test                             # 4. 执行
+python tools/render.py --all spec/cases                # 3. 生成
+python -m pytest tests -q                              # 4. 执行
 # 5. 失败四分类 → 只有 case_error 回流 2
 ```
 
@@ -218,7 +221,7 @@ npx playwright test                             # 4. 执行
 | 多轮工具调用 | **必需** | 流程无法自动推进 |
 | 子 agent 分派 | 可选 | 降级为串行模式 |
 | 工具权限白名单 | 可选 | 用 `render --check` 兜底 |
-| MCP 客户端 | **不需要** | 用 `snapshot.mjs` 平替 |
+| MCP 客户端 | **不需要** | 用 `snapshot.py` 平替 |
 
 **唯一的一票否决项是 shell 能力。** 其余缺失都有降级方案。
 
@@ -229,36 +232,35 @@ npx playwright test                             # 4. 执行
 ### 8.1 安装
 
 ```bash
-npm config set registry http://<内部私服>/
-set PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD=1
-npm i -D @playwright/test playwright
+pip config set global.index-url http://<内部私服>/simple
+pip install -r requirements.txt
 ```
 
-安装时跳过浏览器下载，避免 postinstall 卡在网络上十分钟后失败（容易被误判为私服问题）。
+Python 版没有 postinstall 钩子，`pip install` 不会触发浏览器下载，装完再单独处理浏览器（见下节）。
 
 ### 8.2 浏览器二进制（内网第一道坎）
 
-npm 私服只提供 JS 包，Chromium 来自 `cdn.playwright.dev`，通常出不去。三个办法：
+pip 私服只提供 Python 包，Chromium 来自 `cdn.playwright.dev`，通常出不去。三个办法：
 
 ```bash
 # A. 有内部镜像
 set PLAYWRIGHT_DOWNLOAD_HOST=http://<内部镜像>
-npx playwright install chromium
+python -m playwright install chromium
 
-# B. 离线搬运：源机器 npx playwright install chromium，
+# B. 离线搬运：源机器 python -m playwright install chromium，
 #    拷贝 %LOCALAPPDATA%\ms-playwright 到目标机同路径，
 #    或统一设置 PLAYWRIGHT_BROWSERS_PATH=D:\browsers\ms-playwright
 
-# C. 复用已装 Chrome（最省事）
-#    playwright.config.ts: use: { ...devices['Desktop Chrome'], channel: 'chrome' }
+# C. 复用已装 Chrome / Edge（最省事）
+#    pytest 直接加参数：python -m pytest --browser-channel chrome
 ```
 
 ### 8.3 登录态
 
 ```bash
-npx playwright codegen --save-storage=auth.json http://<内网地址>/login
-node tools/snapshot.mjs --url ... --state auth.json
-set AUTH_STATE=auth.json && npx playwright test
+python -m playwright codegen --save-storage=auth.json http://<内网地址>/login
+python tools/snapshot.py --url ... --state auth.json
+set AUTH_STATE=auth.json && python -m pytest tests -q
 ```
 
 `auth.json` 含有效凭证，必须进 `.gitignore`。会话过期重录即可，不要把账号密码写进代码。
@@ -319,13 +321,14 @@ npm i -D @playwright/mcp
 - **用例数量**：只会诱导大量重复、低价值用例。
 - **代码覆盖率**：证明"被执行过"，不证明"能抓 bug"。用变异测试补位。
 
-### 10.3 验收标准（v0.2）
+### 10.3 验收标准（v0.3）
 
-- [x] 一条用例可从 JSON 渲染为可执行 spec
+- [x] 一条用例可从 JSON 渲染为可执行测试函数（pytest + Playwright Python）
 - [x] 快照支持稳定 key 与增量 diff
 - [x] 环境自检可给出明确阻塞原因
 - [x] 登录态可复用
-- [ ] 端到端在内网真实系统跑通（待验证）
+- [x] 端到端在真实站点跑通（TesterHome，5/5）
+- [ ] 接入内网业务系统（待验证）
 - [ ] `render --check` 接入 CI
 - [ ] 失败四分类自动化
 
@@ -357,6 +360,7 @@ npm i -D @playwright/mcp
 |---|---|---|
 | v0.1 | 快照 + 渲染 + 用例契约 | 完成 |
 | v0.2 | 环境自检、登录态、单 agent 降级、能力核对表 | 完成 |
+| v0.3 | 迁移到 pytest + Playwright (Python)；真实站点 5/5 验证 | 完成 |
 | v0.3 | 失败四分类（triage）、CI 接入 | 待做 |
 | v0.4 | 覆盖率 / 变更影响面反馈，增量选靶 | 待做 |
 | v1.0 | 多项目复用、指标看板、变异测试 | 规划 |
@@ -368,17 +372,18 @@ npm i -D @playwright/mcp
 ### 13.1 命令速查
 
 ```bash
-node tools/preflight.mjs                                   # 环境自检
-node tools/snapshot.mjs --url <URL> --out .snap/x.json     # 快照
-node tools/snapshot.mjs --url <URL> --out .snap/x.json \
-     --diff .snap/prev.json --state auth.json --json       # 增量 + 登录态 + 机读输出
-node tools/render.mjs --all spec/cases                     # 生成
-node tools/render.mjs --all spec/cases --check             # 检测手改
-node tools/serve.mjs --root . --port 3000                  # 本地静态服务
-npx playwright test                                        # 执行
+python tools/preflight.py                                   # 环境自检
+python tools/snapshot.py --url <URL> --out .snap/x.json     # 快照
+python tools/snapshot.py --url <URL> --out .snap/x.json \
+     --diff .snap/prev.json --state auth.json --json        # 增量 + 登录态 + 机读输出
+python tools/render.py --all spec/cases                     # 生成
+python tools/render.py --all spec/cases --check             # 检测手改
+python tools/serve.py --root . --port 3000                  # 本地静态服务
+python -m pytest tests -q                                   # 执行
+python -m pytest tests -k th_ -q --browser-channel chrome   # 复用系统 Chrome
 ```
 
-环境变量：`BASE_URL`、`AUTH_STATE`、`PLAYWRIGHT_BROWSERS_PATH`、`PLAYWRIGHT_DOWNLOAD_HOST`、`PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD`。
+环境变量：`BASE_URL`、`AUTH_STATE`、`PLAYWRIGHT_BROWSERS_PATH`、`PLAYWRIGHT_DOWNLOAD_HOST`、`PYTHONUTF8`。
 
 ### 13.2 常见失败模式对照表
 

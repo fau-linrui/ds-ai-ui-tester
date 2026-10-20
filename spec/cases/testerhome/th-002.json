@@ -1,0 +1,14 @@
+{
+  "id": "TH-002",
+  "title": "顶部导航「社区」跳转到帖子列表",
+  "requirement": "TH-NAV-TOPICS",
+  "priority": "P1",
+  "tags": ["nav", "topics"],
+  "risk": "主导航失效，用户无法进入社区列表",
+  "steps": [
+    { "action": "goto", "url": "/" },
+    { "action": "click", "target": { "role": "link", "name": "社区", "exact": true } },
+    { "action": "expectUrl", "contains": "/topics" },
+    { "action": "expect", "target": { "role": "link", "name": "社区", "exact": true }, "assertion": { "type": "visible" } }
+  ]
+}
