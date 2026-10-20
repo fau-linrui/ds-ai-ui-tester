@@ -3,6 +3,7 @@
 纯文本大模型驱动的 UI 自动化用例框架，基于 **pytest + Playwright (Python)**。不依赖多模态、不依赖任何特定 agent，装完就能跑。
 
 > 完整项目文档（背景、设计决策、契约、验收、路线图）见 [PROJECT.md](PROJECT.md)。
+> 设计理念、实测数据与自我剖析见 [docs/DESIGN-PHILOSOPHY.md](docs/DESIGN-PHILOSOPHY.md)。
 > 换 agent 前先过一遍 [AGENT-CAPABILITIES.md](AGENT-CAPABILITIES.md)。
 
 ```
