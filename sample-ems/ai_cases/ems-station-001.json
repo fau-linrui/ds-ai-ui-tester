@@ -1,0 +1,12 @@
+{
+  "id": "EMS-STATION-001",
+  "title": "按名称搜索电站",
+  "requirement": "REQ-EMS-201",
+  "priority": "P1",
+  "sources": ["REQ-EMS-201"],
+  "steps": [
+    { "action": "call", "page": "StationPage", "method": "open" },
+    { "action": "call", "page": "StationPage", "method": "search_by_keyword", "args": { "keyword": "华东" } },
+    { "action": "call", "page": "ReportPage", "method": "export_as_pdf" }
+  ]
+}

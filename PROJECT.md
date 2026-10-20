@@ -104,6 +104,8 @@ UI 自动化拆开是四件事：**感知 → 决策 → 执行 → 判定**。�
 | `tools/snapshot.py` | 稳定 key 的页面快照 + 增量 diff | 人 / 维护者 |
 | `tools/render.py` | 用例 JSON → pytest + Playwright 测试函数，含 `--check` | 人 / 维护者 |
 | `tools/preflight.py` | 环境自检，退出码即结论 | 人 / 维护者 |
+| `tools/index_pom.py` | AST 扫描既有仓库，产出 POM/manifest 清单 | 人 / 维护者 |
+| `tools/gap_report.py` | 覆盖率、POM 缺口、技术债报告 | 人 / 维护者 |
 | `tools/serve.py` | 零依赖静态服务器（演示 / 本地调试） | 人 / 维护者 |
 | `conftest.py` | `base_url` / `AUTH_STATE` 两个 fixture | 人 |
 | `spec/case.schema.json` | 用例契约，改这里等于改语言 | 人 |

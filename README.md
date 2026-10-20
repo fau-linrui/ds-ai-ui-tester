@@ -74,6 +74,23 @@ set BASE_URL=http://127.0.0.1:3000
 python -m pytest tests -k order_ -q
 ```
 
+## P0 工具：先量现状，再谈生成
+
+对接既有框架前，先跑这两个（都不调模型）：
+
+```bash
+# 1. 扫既有仓库，产出框架 API 清单
+python tools/index_pom.py --root D:\work\ems-autotest --out manifest.json
+
+# 2. 覆盖率 + 缺口 + 技术债报告
+python tools/gap_report.py --manifest manifest.json --cases spec/cases --out gap.md
+```
+
+输出四类信息：Page 覆盖率、POM 内部债务（`find_element` / `sleep` / 页面内断言）、
+测试绕过 POM 的热点、AI 用例需要的 POM 缺口。
+
+`sample-ems/` 是一个刻意做"脏"的仿真仓库，用来验证这两个工具的口径。
+
 ## 目录
 
 | 路径 | 作用 |
@@ -81,6 +98,8 @@ python -m pytest tests -k order_ -q
 | `tools/snapshot.py` | 稳定 key 的快照 + 增量 diff |
 | `tools/render.py` | 用例 JSON → pytest 测试函数 |
 | `tools/preflight.py` | 环境自检，退出码即结论 |
+| `tools/index_pom.py` | AST 扫描既有仓库，产出 POM/manifest 清单 |
+| `tools/gap_report.py` | 覆盖率、缺口、技术债报告 |
 | `tools/serve.py` | 零依赖静态服务器 |
 | `conftest.py` | `base_url` / `AUTH_STATE` 两个 fixture |
 | `spec/case.schema.json` | 用例契约（改这里等于改语言） |

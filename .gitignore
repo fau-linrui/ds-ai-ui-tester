@@ -8,3 +8,4 @@ playwright-report/
 .snap/
 auth.json
 node_modules/
+manifest.json
