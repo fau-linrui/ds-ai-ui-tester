@@ -92,6 +92,17 @@ python tools/gap_report.py --manifest manifest.json --cases spec/cases --out gap
 
 `sample-ems/` 是一个刻意做"脏"的仿真仓库，用来验证这两个工具的口径。
 
+## 把设计文档喂给内网 AI
+
+如果要把 [docs/DESIGN-PHILOSOPHY.md](docs/DESIGN-PHILOSOPHY.md) 交给另一个 AI 做框架对比：
+
+```bash
+python tools/collect_evidence.py --root <你的仓库> --out evidence.md   # 生成证据包（≤15KB）
+```
+
+然后按 [prompts/](prompts/) 里的两轮提示词执行：第一轮只校准理解，第二轮打分与给建议。
+详见 [prompts/README.md](prompts/README.md)。
+
 ## 目录
 
 | 路径 | 作用 |
@@ -101,7 +112,9 @@ python tools/gap_report.py --manifest manifest.json --cases spec/cases --out gap
 | `tools/preflight.py` | 环境自检，退出码即结论 |
 | `tools/index_pom.py` | AST 扫描既有仓库，产出 POM/manifest 清单 |
 | `tools/gap_report.py` | 覆盖率、缺口、技术债报告 |
+| `tools/collect_evidence.py` | 生成给外部 AI 的仓库证据包 |
 | `tools/serve.py` | 零依赖静态服务器 |
+| `prompts/` | 两轮对照评估的提示词 |
 | `conftest.py` | `base_url` / `AUTH_STATE` 两个 fixture |
 | `spec/case.schema.json` | 用例契约（改这里等于改语言） |
 | `spec/cases/` | 模型唯一被允许写的地方 |

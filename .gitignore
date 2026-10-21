@@ -9,3 +9,4 @@ playwright-report/
 auth.json
 node_modules/
 manifest.json
+evidence.md
