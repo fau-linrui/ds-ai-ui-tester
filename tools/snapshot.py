@@ -12,6 +12,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import re
 import sys
 from pathlib import Path
 
@@ -51,6 +52,7 @@ COLLECT_JS = """
         .filter(Boolean).map((n) => n.textContent).join(' ');
       if (norm(t)) return norm(t);
     }
+    if (el.labels && el.labels.length) return norm(Array.from(el.labels).map(l => l.textContent).join(' '));
     if (el.id) {
       const l = document.querySelector(`label[for="${esc(el.id)}"]`);
       if (l) return norm(l.textContent);
@@ -70,7 +72,10 @@ COLLECT_JS = """
       if (t === 'checkbox' || t === 'radio') return t;
       if (t === 'submit' || t === 'button' || t === 'reset') return 'button';
       if (t === 'search') return 'searchbox';
-      return 'textbox';
+      if (t === 'number') return 'spinbutton';
+      if (t === 'range') return 'slider';
+      if (['text', 'tel', 'email', 'url'].includes(t)) return 'textbox';
+      return '';
     }
     return roleMap[tag] || tag;
   };
@@ -111,24 +116,33 @@ COLLECT_JS = """
 
     nodes.push({
       key: n === 1 ? base : `${base}#${n}`,
+      baseKey: base,
       role,
       name,
       ...(testid ? { testid } : {}),
-      ...(typeof el.value === 'string' && el.value ? { value: el.value } : {}),
+      ...(typeof el.value === 'string' && el.type !== 'password' ? { value: el.value } : {}),
       ...(el.disabled || el.getAttribute('aria-disabled') === 'true' ? { disabled: true } : {}),
       ...(typeof el.checked === 'boolean' ? { checked: el.checked } : {}),
       path: pathOf(el),
     });
   }
 
+  for (const node of nodes) {
+    node.ambiguous = counter.get(node.baseKey) > 1;
+    node.keyStability = node.ambiguous ? 'snapshot-only' : 'semantic';
+  }
   return { title: document.title, nodes };
 }
 """
 
 
 def diff_snapshots(prev: dict, nxt: dict) -> dict:
-    old = {n["key"]: n for n in prev.get("nodes", [])}
-    new = {n["key"]: n for n in nxt.get("nodes", [])}
+    def base(node):
+        return node.get("baseKey", re.sub(r"#\d+$", "", node["key"]))
+
+    ambiguous = {base(n) for n in prev.get("nodes", []) + nxt.get("nodes", []) if n.get("ambiguous")}
+    old = {n["key"]: n for n in prev.get("nodes", []) if base(n) not in ambiguous}
+    new = {n["key"]: n for n in nxt.get("nodes", []) if base(n) not in ambiguous}
 
     added = [v for k, v in new.items() if k not in old]
     removed = [v for k, v in old.items() if k not in new]
@@ -147,7 +161,31 @@ def diff_snapshots(prev: dict, nxt: dict) -> dict:
                     "after": {f: value.get(f) for f in fields},
                 }
             )
-    return {"added": added, "removed": removed, "changed": changed}
+    return {"added": added, "removed": removed, "changed": changed, "ambiguous": sorted(ambiguous)}
+
+
+def collect_snapshot(page, timeout: int = 15000) -> dict:
+    """Browser-computed ARIA tree plus explicitly heuristic DOM metadata."""
+    data = page.evaluate(COLLECT_JS, ROLE_BY_TAG)
+    data.update({
+        "snapshotVersion": 2,
+        "url": page.url,
+        "ariaSnapshot": page.locator("body").aria_snapshot(timeout=timeout),
+        "nodeMetadata": "dom-heuristic; use ariaSnapshot for roles and accessible names",
+        "complete": True,
+        "frames": [],
+    })
+    for index, frame in enumerate(page.frames):
+        if frame == page.main_frame:
+            continue
+        item = {"id": f"frame-{index}", "name": frame.name, "url": frame.url}
+        try:
+            item["ariaSnapshot"] = frame.locator("body").aria_snapshot(timeout=timeout)
+        except Exception as exc:
+            item["error"] = str(exc)
+            data["complete"] = False
+        data["frames"].append(item)
+    return data
 
 
 def main() -> int:
@@ -182,8 +220,7 @@ def main() -> int:
             except Exception:
                 pass
 
-        data = page.evaluate(COLLECT_JS, ROLE_BY_TAG)
-        data["url"] = page.url
+        data = collect_snapshot(page, args.timeout)
         browser.close()
 
     from datetime import datetime, timezone
@@ -214,7 +251,7 @@ def main() -> int:
         print(
             json.dumps(
                 {
-                    "ok": True,
+                    "ok": data["complete"],
                     "url": data["url"],
                     "nodes": len(data["nodes"]),
                     "out": str(out),
@@ -222,6 +259,7 @@ def main() -> int:
                         "added": [x["key"] for x in diff["added"]],
                         "removed": [x["key"] for x in diff["removed"]],
                         "changed": [x["key"] for x in diff["changed"]],
+                        "ambiguous": diff["ambiguous"],
                     }
                     if diff
                     else None,
@@ -229,7 +267,7 @@ def main() -> int:
                 ensure_ascii=False,
             )
         )
-    return 0
+    return 0 if data["complete"] else 1
 
 
 if __name__ == "__main__":

@@ -1,3 +1,4 @@
-playwright>=1.40
+playwright>=1.49,<2
 pytest>=8.0
 pytest-playwright>=0.5
+jsonschema>=4.18,<5

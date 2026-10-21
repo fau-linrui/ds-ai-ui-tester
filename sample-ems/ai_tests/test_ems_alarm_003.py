@@ -5,7 +5,7 @@ from playwright.sync_api import Page, expect
 
 
 def test_ems_alarm_003(page: Page, logged_in, alarm_center) -> None:
-    """EMS-ALARM-003 按严重等级筛选告警"""
+    "EMS-ALARM-003 按严重等级筛选告警"
     alarm_center.open()
     alarm_center.filter_by_level(level="严重")
     assert alarm_center.row_count() > 0

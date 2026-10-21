@@ -1,8 +1,11 @@
 # text-only-e2e（pytest + Playwright）
 
-> 项目文档 · v0.3 · 2026-10
+> 项目文档 · v0.5 · 2026-10
 > 技术栈：Python 3.9+ / pytest / Playwright Python
 > 适用场景：内网环境、仅可使用纯文本大模型、需生成可维护的 UI 自动化用例资产
+
+> 当前编译器的严格语义、完整生成集合检查与已实现边界见 [docs/COMPILER-CONTRACT.md](docs/COMPILER-CONTRACT.md)。
+> 本文部分实测与 ADR 保留历史背景，不代表尚未验证的能力已完成。
 
 ---
 

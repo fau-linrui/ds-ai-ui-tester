@@ -4,7 +4,7 @@ from playwright.sync_api import Page, expect
 
 
 def test_th_001(page: Page, base_url: str) -> None:
-    """TH-001 首页核心区块正常渲染"""
+    "TH-001 首页核心区块正常渲染"
     page.goto(base_url + "/")
     expect(page.get_by_role("heading", name="测试之家", exact=True)).to_be_visible()
     expect(page.get_by_text("最新帖子")).to_be_visible()

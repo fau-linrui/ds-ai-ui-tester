@@ -9,6 +9,8 @@
 from __future__ import annotations
 
 import json
+import argparse
+from importlib.metadata import PackageNotFoundError, version
 import os
 import sys
 import urllib.error
@@ -34,17 +36,16 @@ def check_playwright():
     except ImportError:
         add("playwright 包", False, "未安装：pip install playwright")
         return None
-    version = getattr(playwright, "__version__", "unknown")
-    add("playwright 包", True, version)
+    add("playwright 包", True, version("playwright"))
     return sync_playwright
 
 
-def check_browser(sync_playwright) -> None:
+def check_browser(sync_playwright, channel: str = "") -> None:
     if sync_playwright is None:
         return
     try:
         with sync_playwright() as p:
-            browser = p.chromium.launch(headless=True)
+            browser = p.chromium.launch(headless=True, **({"channel": channel} if channel else {}))
             version = browser.version
             browser.close()
         add("浏览器可启动", True, version)
@@ -80,18 +81,27 @@ def check_writable() -> None:
 
 
 def main() -> int:
-    as_json = "--json" in sys.argv[1:]
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--json", action="store_true")
+    parser.add_argument("--channel", default="", help="与 snapshot / pytest 使用相同的 chrome 或 msedge")
+    args = parser.parse_args()
+    CHECKS.clear()
     if hasattr(sys.stdout, "reconfigure"):
         sys.stdout.reconfigure(encoding="utf-8", errors="replace")
     check_python()
+    for package in ("pytest", "pytest-playwright", "jsonschema"):
+        try:
+            add(package, True, version(package))
+        except PackageNotFoundError:
+            add(package, False, "pip install -r requirements.txt")
     sync_playwright = check_playwright()
-    check_browser(sync_playwright)
+    check_browser(sync_playwright, args.channel)
     check_base_url()
     check_writable()
 
     ok = all(item["ok"] for item in CHECKS)
 
-    if as_json:
+    if args.json:
         print(json.dumps({"ok": ok, "checks": CHECKS}, ensure_ascii=False, indent=2))
     else:
         for item in CHECKS:

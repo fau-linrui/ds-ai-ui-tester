@@ -4,6 +4,11 @@
 
 技术栈：**pytest + Playwright (Python)**。不要引入 Node 工具链，也不要生成 `.spec.ts`。
 
+以下产物限制适用于 explorer / author / verifier 生产业务用例的流程。
+用户明确要求维护框架工具时，维护者可以修改 tools、schema、tool_tests、配置与文档；
+`tests/**` 仍须通过 renderer 更新。维护者应运行工具回归，并按实际证据报告验证结果。
+当前工具契约与限制见 `docs/COMPILER-CONTRACT.md`。
+
 ## 你能产出什么
 
 只有三个位置，别的一律不许写：
@@ -27,7 +32,7 @@
 7. **失败必须分类**：`product_bug` / `case_error` / `env` / `flaky`。只有 `case_error` 允许回流给 author 重写。
 8. **重试上限 3 次。** 同一用例连续 3 次仍失败，停下，把现场（snapshot + trace + console）写进 `triage.json`，等人。
 9. **不许声称"已修复"。** 你只能声称"已重新生成，等待执行验证"。
-10. **POM 优先于定位器。** 能写成 `call` 就不要写 `raw`；`raw` 必须带 `pom_gap`，且全局占比不得超过 20%（`lint` 会拦）。
+10. **POM 优先于定位器。** POM 模式下，`raw` 与直接 click/fill 等动作均须带 `pom_gap`，每条用例及全局占比不得超过 20%。接入成熟框架时用 `lint --require-pom` 强制策略。
 
 ## 工作顺序
 
@@ -59,7 +64,7 @@ python -m pytest tests/test_xxx.py -q
 
 1. 加 `exact: true` —— 解决子串误匹配（`社区` vs `社区学堂`）
 2. 加 `href` —— 链接类元素用它区分最可靠
-3. 加 `testid` —— 推动前端补 `data-testid`，这是根治
+3. 用 `within` 指定弹窗、行或导航区域；仍有歧义时推动前端补 `data-testid`
 
 Playwright 的 strict mode 报"resolved to N elements"是**正确行为**，不是 bug。
 
@@ -75,11 +80,15 @@ Playwright 的 strict mode 报"resolved to N elements"是**正确行为**，不�
 
 ## 没有 MCP / 没有浏览器工具时
 
-`tools/snapshot.py` 就是 MCP 的平替：
+`tools/snapshot.py` 可采集单个 URL 的 ARIA 树与 DOM 辅助信息：
 
 - 看页面 → `python tools/snapshot.py --url ... --out .snap/x.json`
 - 看变化 → 加 `--diff .snap/上一份.json`
 - 要登录态 → `--state auth.json`
+
+每次命令新建浏览器，不保留上一条命令打开的弹窗、标签页或分页状态。
+复杂流程需由持有浏览器会话的工具或可信 POM 探索，不能声称静态快照已覆盖全流程。
+重名 key 的 `#2` 仅限本次快照，不可当成跨快照的稳定身份。
 
 不要因为没有 MCP 就退回"让模型猜选择器"，那是死路。
 

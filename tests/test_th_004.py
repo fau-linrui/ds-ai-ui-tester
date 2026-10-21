@@ -4,7 +4,7 @@ from playwright.sync_api import Page, expect
 
 
 def test_th_004(page: Page, base_url: str) -> None:
-    """TH-004 首页搜索框可见且可输入"""
+    "TH-004 首页搜索框可见且可输入"
     page.goto(base_url + "/")
     expect(page.get_by_role("textbox", name="搜索", exact=True)).to_be_visible()
     page.get_by_role("textbox", name="搜索", exact=True).fill("appium")

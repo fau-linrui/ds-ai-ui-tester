@@ -1,0 +1,40 @@
+name: Framework checks
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  contracts:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python: ['3.9', '3.13']
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '${{ matrix.python }}'
+      - run: python -m pip install -r requirements.txt
+      - run: python -m pytest tool_tests -m 'not browser' -q
+      - run: python tools/lint.py --cases spec/cases
+      - run: python tools/render.py --all spec/cases --check
+      - run: python tools/lint.py --cases sample-ems/ai_cases --require-pom
+      - run: python tools/render.py --all sample-ems/ai_cases --out-dir sample-ems/ai_tests --check
+
+  browser:
+    runs-on: ubuntu-latest
+    env:
+      RUN_BROWSER_TESTS: '1'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+      - run: python -m pip install -r requirements.txt
+      - run: python -m playwright install --with-deps chromium
+      - run: python -m pytest tool_tests/test_browser_contracts.py -q
