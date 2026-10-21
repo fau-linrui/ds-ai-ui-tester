@@ -472,6 +472,8 @@ def run_scheduler(run: Path, inputs: dict) -> dict:
             for future in as_completed(futures):
                 state = future.result()
                 print(f"[harness] {state['id']}: {state['status']} (attempt {state['attempt']})", flush=True)
+                if state.get("summary"):
+                    print(f"[harness] {state['id']}: {state['summary'][:1000]}", flush=True)
         except KeyboardInterrupt:
             interrupted = True
             stop.set()

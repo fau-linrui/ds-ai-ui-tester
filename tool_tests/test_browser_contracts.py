@@ -141,9 +141,13 @@ print(json.dumps(result))
         {"id": case["id"], "goal": "Save in Edit dialog", "url": "/",
          "sources": [{"id": "REQ-BROWSER", "path": "source.md"}]}
     ]})
-    assert harness_main(["run", "--config", str(tmp_path / "config.json"), "--tasks", str(tmp_path / "tasks.json"),
-                         "--root", str(tmp_path), "--run-id", "browser"]) == 0
+    code = harness_main(["run", "--config", str(tmp_path / "config.json"), "--tasks", str(tmp_path / "tasks.json"),
+                         "--root", str(tmp_path), "--run-id", "browser"])
     directory = tmp_path / ".snap/runs/browser/tasks/BROWSER-001"
+    diagnostics = {str(p.relative_to(directory)): p.read_text(encoding="utf-8", errors="replace")[-12000:]
+                   for p in directory.rglob("*") if p.is_file() and p.name in {
+                       "triage.json", "execution.json", "pytest.stdout", "pytest.stderr", "verifier.stderr"}}
+    assert code == 0, json.dumps(diagnostics, indent=2)
     assert 'dialog "Edit"' in read_json(directory / "snapshot.json")["ariaSnapshot"]
     assert read_json(directory / "attempts/01/execution.json")["outcome"] == "failed"
     assert list((directory / "attempts/01/browser-results").rglob("trace.zip"))
