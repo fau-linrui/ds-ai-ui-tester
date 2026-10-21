@@ -4,6 +4,7 @@
 
 > 完整项目文档（背景、设计决策、契约、验收、路线图）见 [PROJECT.md](PROJECT.md)。
 > 设计理念、实测数据与自我剖析见 [docs/DESIGN-PHILOSOPHY.md](docs/DESIGN-PHILOSOPHY.md)。
+> 一次完整用例的逐步走读见 [docs/WALKTHROUGH.md](docs/WALKTHROUGH.md)。
 > 换 agent 前先过一遍 [AGENT-CAPABILITIES.md](AGENT-CAPABILITIES.md)。
 
 ```
