@@ -1,5 +1,9 @@
 # AGENT-CAPABILITIES.md —— 换任何 agent 都要过这张表
 
+> 下表描述让 Agent 自行操作工具的人工 / 原生分派流程。
+> 使用 [Harness](docs/HARNESS.md) 时，shell、文件写入、浏览器与阶段推进由 Python 调度器持有；
+> 文本模型只需通过 OpenCode JSONL 或通用 JSON 进程协议返回结构化结果，不必拥有上述工具。
+
 这套框架不绑定 opencode，也不绑定 DSH。它只要求 agent 提供下面 6 项能力中的**前 3 项**。
 把你的自研 agent 对着这张表核一遍，缺哪项就看到对应的降级方案。
 
@@ -16,14 +20,15 @@
 | # | 能力 | 用在哪 | 降级方案 |
 |---|---|---|---|
 | 4 | **子 agent / 任务分派** | explorer / author / verifier 分工 | 单 agent 串行 + `stage-gate` 文件：每阶段结束写 `.snap/stage.json`，人确认后进下一阶段。见 AGENTS.md「无 subagent 模式」 |
-| 5 | **工具权限白名单** | 物理禁止 verifier 改代码 | 用脚本兜底：`python tools/render.py --all spec/cases --check`，`tests/` 被手改直接 fail |
-| 6 | **MCP 客户端** | 探索期用 `@playwright/mcp` 快速摸页面 | **完全不需要**。`tools/snapshot.py` 就是 MCP 的替代品，而且更可控 |
+| 5 | **工具权限白名单** | 限制 verifier 写入范围 | `render --check` 只能检查生成一致性，不能代替宿主工具权限；缺少隔离时须人工把关 |
+| 6 | **MCP 客户端** | 探索期持续操作页面 | 单 URL 可用 snapshot CLI；有状态流程需要会话工具或可信 POM，静态快照并不等价 |
 
 ## 关键判断
 
 **第 6 项（MCP）没有，几乎不影响。** 我给的骨架从第一天就是 CLI-first：
 agent 只要能跑 `python tools/snapshot.py`，就已经"看见"页面了。
-MCP 的价值只是让探索快一点，以及省掉一次 shell 调用。
+snapshot CLI 每次新建页面，不保留操作状态。MCP 或其他会话工具可以在同一页面持续操作并反馈状态。
+两者采用相同的纯文本观察路线，但能力范围不同。
 
 **真正会卡住你的是第 1、2、3 项。** 只要这三项在，MCP、子 agent、权限白名单全都可以用脚本和人补上。
 

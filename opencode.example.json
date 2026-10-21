@@ -3,7 +3,13 @@
   "mcp": {
     "playwright": {
       "type": "local",
-      "command": ["npx", "-y", "@playwright/mcp@latest", "--headless", "--isolated"],
+      "command": [
+        "npx",
+        "-y",
+        "@playwright/mcp@latest",
+        "--headless",
+        "--isolated"
+      ],
       "enabled": true
     }
   },
@@ -11,20 +17,35 @@
     "explorer": {
       "description": "探索页面结构，只产出 .snap/*.json 页面地图，不写用例、不改代码",
       "mode": "subagent",
-      "prompt": "你是 explorer。用 playwright MCP 的 browser_snapshot 摸清页面：有哪些可交互元素、关键区域、状态变化。产出 .snap/<页面>.json：{url, title, nodes:[{key, role, name, testid, value, disabled}], flows:[...]}。禁止写 spec/ 和 tests/。凡是 a11y 树里没有名字的元素，记进 gaps 数组，那是需要前端补 testid 的清单。",
-      "tools": { "read": true, "write": true, "edit": false, "bash": true }
+      "prompt": "你是 explorer。用持有浏览器会话的工具探索实际页面，优先读取 browser_snapshot 的区域与可访问名称。可用 Python snapshot CLI 采集单 URL，但它不保留此前操作状态。产出 .snap/<页面>.json，记录当前状态、区域、目标与歧义；重名编号不是稳定身份。禁止写 spec/ 和 tests/。权限范围需由宿主工具配置保证。",
+      "tools": {
+        "read": true,
+        "write": true,
+        "edit": false,
+        "bash": true
+      }
     },
     "author": {
       "description": "根据页面地图和需求，写结构化用例 JSON",
       "mode": "subagent",
-      "prompt": "你是 author。读 .snap/*.json 和需求，写 spec/cases/<ID>.json，严格遵守 spec/case.schema.json。禁止出现 CSS/XPath；target 只用 testid > role+name > label > text。期望值必须有出处，找不到就停下问人。禁止修改 tests/。",
-      "tools": { "read": true, "write": true, "edit": true, "bash": false }
+      "prompt": "你是 author。读取页面证据与原始需求，只写 spec/cases/<ID>.json，遵守 spec/case.schema.json 与 docs/COMPILER-CONTRACT.md。使用 within 消歧；POM 模式优先调用现有 fixture/POM，直接动作同样计入降级预算。预期必须有可核对的来源。禁止改 tests/，禁止为通过而降低断言。",
+      "tools": {
+        "read": true,
+        "write": true,
+        "edit": true,
+        "bash": false
+      }
     },
     "verifier": {
       "description": "执行测试并对失败做四分类，不改代码",
       "mode": "subagent",
-      "prompt": "你是 verifier。跑 npx playwright test，失败后读 trace/console/network，把每条失败分类为 product_bug / case_error / env / flaky，写 .snap/triage.json。你只能改 triage.json，禁止改 spec/ 和 tests/。同一用例重试 3 次仍失败就停下来等人。",
-      "tools": { "read": true, "write": true, "edit": false, "bash": true }
+      "prompt": "你是 verifier。依次运行 python tools/lint.py --cases spec/cases、python tools/render.py --all spec/cases --check，再使用 python -m pytest 执行指定的已生成用例。读取实际退出码与报告，按 product_bug / case_error / env / flaky 分类，写 .snap/triage.json。没有执行证据不得宣称通过。禁止改 spec/ 和 tests/；重试最多3次。当前配置没有实现自动调度或路径权限隔离，需要宿主保障。",
+      "tools": {
+        "read": true,
+        "write": true,
+        "edit": false,
+        "bash": true
+      }
     }
   }
 }

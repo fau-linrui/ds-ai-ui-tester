@@ -6,7 +6,7 @@ from playwright.sync_api import Page, expect
 
 
 def test_th_002(page: Page, base_url: str) -> None:
-    """TH-002 顶部导航「社区」跳转到帖子列表"""
+    "TH-002 顶部导航「社区」跳转到帖子列表"
     page.goto(base_url + "/")
     page.get_by_role("link", name="社区", exact=True).click()
     expect(page).to_have_url(re.compile("/topics"))

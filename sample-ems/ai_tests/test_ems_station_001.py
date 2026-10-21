@@ -4,7 +4,7 @@
 
 
 def test_ems_station_001(station_page, report_page) -> None:
-    """EMS-STATION-001 按名称搜索电站"""
+    "EMS-STATION-001 按名称搜索电站"
     station_page.open()
     station_page.search_by_keyword(keyword="华东")
     assert station_page.result_count() > 0

@@ -6,6 +6,8 @@
 > 设计理念、实测数据与自我剖析见 [docs/DESIGN-PHILOSOPHY.md](docs/DESIGN-PHILOSOPHY.md)。
 > 一次完整用例的逐步走读见 [docs/WALKTHROUGH.md](docs/WALKTHROUGH.md)。
 > 换 agent 前先过一遍 [AGENT-CAPABILITIES.md](AGENT-CAPABILITIES.md)。
+> 当前编译契约、迁移方式和已实现边界见 [docs/COMPILER-CONTRACT.md](docs/COMPILER-CONTRACT.md)（v0.5）。
+> 多 Agent 自动调度、OpenCode / DSH 接入和断点恢复见 [docs/HARNESS.md](docs/HARNESS.md)。
 
 ```
 spec/cases/*.json   ──render──>   tests/test_*.py   ──pytest──>   CI
@@ -62,7 +64,7 @@ python tools/preflight.py
 python tools/snapshot.py --url %BASE_URL%/ --out .snap/home.json
 
 # 3. 生成测试代码
-python tools/render.py --all spec/cases/testerhome
+python tools/render.py --all spec/cases
 
 # 4. 跑
 python -m pytest tests -k th_ -q
@@ -99,6 +101,24 @@ python -m pytest tool_tests -q
 
 `sample-ems/` 是一个刻意做"脏"的仿真仓库，用来验证这两个工具的口径。
 
+## 多 Agent 自动调度
+
+Harness 已实现 explorer → author → 静态闸门 → pytest → verifier 的自动流转。
+支持独立进程、按任务有界并发、持久检查点与恢复；只有 case_error 可重试，总尝试数最多 3。
+修复时由代码限制只能更改 target，阻止断言、期望、mock 或步骤顺序变化。
+
+```powershell
+# 先启动本地演示站点，配置好 OpenCode 的纯文本模型
+$env:OPENCODE_CONFIG = (Resolve-Path opencode.harness.example.json).Path
+python tools/harness.py run --config harness.example.json --tasks harness.tasks.example.json --run-id demo-001
+python tools/harness.py status --run .snap/runs/demo-001
+python tools/harness.py resume --run .snap/runs/demo-001
+```
+
+结果暂存于 `.snap/runs/<run-id>/`，评审后再固化到正式用例目录。
+OpenCode 通过 JSONL 接入；DSH / 自研 Agent 通过 JSON stdin/stdout 桥接。
+配置、角色输出和实际限制见 [Harness 文档](docs/HARNESS.md)，示例不会自动配置模型凭证。
+
 ## 把设计文档喂给内网 AI
 
 如果要把 [docs/DESIGN-PHILOSOPHY.md](docs/DESIGN-PHILOSOPHY.md) 交给另一个 AI 做框架对比：
@@ -114,7 +134,10 @@ python tools/collect_evidence.py --root <你的仓库> --out evidence.md   # 生
 
 | 路径 | 作用 |
 |---|---|
-| `tools/snapshot.py` | 稳定 key 的快照 + 增量 diff |
+| `tools/snapshot.py` | 浏览器 ARIA 树 + DOM 辅助信息 + 歧义感知 diff |
+| `tools/contracts.py` | lint 与 renderer 共用的严格契约与语义检查 |
+| `tools/harness.py` | 多 Agent 调度、阶段闸门、重试预算与中断恢复 |
+| `tools/harness_io.py` | JSON / OpenCode 协议、受限时长子进程与 OS 运行锁 |
 | `tools/render.py` | 用例 JSON → pytest 测试函数 |
 | `tools/preflight.py` | 环境自检，退出码即结论 |
 | `tools/index_pom.py` | AST 扫描既有仓库，产出 POM/manifest 清单 |
@@ -145,9 +168,17 @@ python -m pytest tests -q
 
 ## 三个设计决策，别改
 
-1. **模型不写选择器，只写语义 target。** 选择器由 renderer 生成，模型最多点错元素，不会产出永远匹配不上的 `div:nth-child(3)`。
+1. **模型只写受约束的语义 target。** renderer 生成定位代码；target 仍可能错误，必须结合真实页面验证唯一性和业务结果。重名元素用 `within` 指定区域。
 2. **模型不碰 `tests/`。** 生成物可回滚、可 diff、可评审；手改过就再也说不清是谁改的。
-3. **LLM 不进 CI。** 生成期用 agent，CI 只跑固化好的代码。
+3. **LLM 不进 CI。** 生成期用 agent，CI 运行契约检查、工具测试和固化代码。
+
+`lint` 与 `render` 现在都会执行 Schema / 语义校验。未知字段不会被静默忽略。
+网络 `routes` 会实际注册 mock；`expectNetwork.equals` 检查响应 JSON 的完整相等。
+批量生成递归扫描用例，`--check` 会报告缺失、变化及过期生成文件；单个子目录请使用独立 `--out-dir`。
+工具不自动删除过期测试，也不覆盖人工测试文件。
+
+真实浏览器工具回归默认跳过；准备 Chromium 后设置 `RUN_BROWSER_TESTS=1` 执行，CI 会单独运行。
+多 Agent 调度与失败分类已由 Harness 接通；模型分类不等于正确性证明，角色提示词也不等于权限隔离。
 
 ## 已知边界
 

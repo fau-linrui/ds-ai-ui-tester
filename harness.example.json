@@ -1,0 +1,28 @@
+{
+  "version": 1,
+  "test_environment": true,
+  "base_url": "http://127.0.0.1:3000",
+  "max_workers": 1,
+  "max_attempts": 3,
+  "agent_timeout": 180,
+  "test_timeout": 180,
+  "snapshot_timeout": 45,
+  "max_output_bytes": 2097152,
+  "require_pom": false,
+  "context_files": [],
+  "pytest_args": [],
+  "agents": {
+    "explorer": {
+      "protocol": "opencode",
+      "command": ["opencode", "run", "--format", "json", "--agent", "harness-explorer"]
+    },
+    "author": {
+      "protocol": "opencode",
+      "command": ["opencode", "run", "--format", "json", "--agent", "harness-author"]
+    },
+    "verifier": {
+      "protocol": "opencode",
+      "command": ["opencode", "run", "--format", "json", "--agent", "harness-verifier"]
+    }
+  }
+}

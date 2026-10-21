@@ -1,0 +1,13 @@
+{
+  "version": 1,
+  "tasks": [
+    {
+      "id": "AUTO-ORDER-001",
+      "goal": "在订单演示页输入有效手机号并查询，核对订单数量与汇总文本。只测试这一查询意图。",
+      "url": "/demo/login.html",
+      "sources": [
+        {"id": "REQ-DEMO-ORDER", "path": "docs/DEMO-REQUIREMENTS.md"}
+      ]
+    }
+  ]
+}

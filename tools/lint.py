@@ -1,46 +1,29 @@
 #!/usr/bin/env python
-"""用例静态闸门：在渲染之前拦住不合规的 JSON。
-
-检查六件事：
-  1. 结构与必填字段
-  2. target 是否只有语义字段（禁止选择器）
-  3. 断言强度（只有 visible 不算）
-  4. 来源（P0/P1 必须有 sources 或 requirement）
-  5. raw 降级预算（超过阈值即失败）
-  6. page 变量是否已声明
-
-用法：
-    python tools/lint.py --cases spec/cases
-    python tools/lint.py --cases spec/cases --boundary
-"""
+"""用例静态闸门：严格契约、断言来源、POM 降级预算与工作区边界。"""
 from __future__ import annotations
 
 import argparse
-import json
-import re
 import subprocess
 import sys
 from pathlib import Path
 
-SEMANTIC_KEYS = {"testid", "role", "label", "placeholder", "text", "href"}
+if __package__ in (None, ""):
+    sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+
+from tools.contracts import DIRECT_ACTIONS, contract_errors, is_pom_case, read_case
+
 SELECTOR_HINTS = ("::", "//", "nth-child", "xpath", "css=", ">>")
 STRONG_ASSERTIONS = {"text", "value", "count"}
-ALLOWED_ACTIONS = {
-    "goto", "click", "fill", "select", "check", "press", "waitFor",
-    "call", "raw", "captureNetwork", "expectNetwork", "expectUrl", "expect",
-}
 ALLOWED_WRITE_PREFIXES = ("spec/", "docs/", "tests/ai_generated/", "pages/_ai/", "sample-ems/")
 
 
 def iter_cases(directory: Path):
-    for path in sorted(directory.rglob("*.json")):
-        yield path
+    yield from sorted(directory.rglob("*.json"))
 
 
 def find_targets(node, parent_key=""):
-    """递归找出所有 target 对象。"""
     if isinstance(node, dict):
-        if parent_key == "target":
+        if parent_key in {"target", "within"}:
             yield node
         for key, value in node.items():
             yield from find_targets(value, key)
@@ -50,135 +33,129 @@ def find_targets(node, parent_key=""):
 
 
 def check_target(target: dict, where: str) -> list[str]:
-    errors = []
-    if not any(k in target for k in SEMANTIC_KEYS):
-        errors.append(f"{where}: target 缺少语义字段（testid/role/label/text）")
-    for key, value in target.items():
-        if isinstance(value, str) and any(h in value for h in SELECTOR_HINTS):
-            errors.append(f"{where}: target.{key} 疑似选择器：{value!r}")
-    return errors
+    return [
+        f"{where}: target.{key} 疑似选择器：{value!r}"
+        for key, value in target.items()
+        if key == "testid" and isinstance(value, str) and any(h in value for h in SELECTOR_HINTS)
+    ]
 
 
-def check_case(case: dict, max_raw: float) -> tuple[list[str], dict]:
-    errors: list[str] = []
-    steps = case.get("steps") or []
-
-    for field in ("id", "title", "steps"):
-        if not case.get(field):
-            errors.append(f"缺少必填字段：{field}")
-    if not re.match(r"^[A-Z][A-Z0-9]*(?:-[A-Z0-9]+)*-[0-9]{3,}$", str(case.get("id", ""))):
-        errors.append(f"id 格式不合法：{case.get('id')!r}")
-
+def check_case(case: dict, max_raw: float, *, require_pom: bool = False) -> tuple[list[str], dict]:
+    errors = contract_errors(case)
+    stats = {"steps": 0, "assertions": 0, "raw": 0, "pom": False}
+    if errors:
+        return errors, stats
+    steps = case["steps"]
+    stats["steps"] = len(steps)
+    stats["pom"] = is_pom_case(case, require_pom)
     for index, step in enumerate(steps):
-        action = step.get("action")
-        where = f"steps[{index}]"
-        if action not in ALLOWED_ACTIONS:
-            errors.append(f"{where}: 未知 action {action!r}")
         for target in find_targets(step):
-            errors.extend(check_target(target, where))
+            errors.extend(check_target(target, f"steps[{index}]"))
 
-    # 来源
-    if str(case.get("priority", "")).upper() in ("P0", "P1") and not (case.get("sources") or case.get("requirement")):
+    if case.get("priority") in ("P0", "P1") and not (case.get("sources") or case.get("requirement")):
         errors.append("P0/P1 用例缺少 sources / requirement（期望值必须有依据）")
 
-    # 断言强度（smoke 用例例外：它本来就只验"页面渲染出来了"）
-    is_smoke = "smoke" in (case.get("tags") or [])
-    strong = 0
     for step in steps:
-        action = step.get("action")
-        if action == "expectUrl" or action == "expectNetwork":
-            strong += 1
-        elif action == "expect":
-            if step.get("page") and step.get("method"):
-                strong += 1
-            elif (step.get("assertion") or {}).get("type") in STRONG_ASSERTIONS:
-                strong += 1
-    if strong == 0 and not is_smoke:
+        action = step["action"]
+        if action in {"expectUrl", "expectNetwork"}:
+            stats["assertions"] += 1
+        elif action == "expect" and (
+            "page" in step or step["assertion"]["type"] in STRONG_ASSERTIONS
+        ):
+            stats["assertions"] += 1
+    if stats["assertions"] == 0 and "smoke" not in case.get("tags", []):
         errors.append("缺少有效断言：只有 visible 不算，至少补 text/value/count 或 expectUrl")
 
-    # raw 预算
-    raw_steps = [s for s in steps if s.get("action") == "raw"]
-    for step in raw_steps:
+    bypass = [
+        s for s in steps
+        if s["action"] == "raw" or (stats["pom"] and s["action"] in DIRECT_ACTIONS)
+    ]
+    stats["raw"] = len(bypass)
+    for step in bypass:
         if not step.get("pom_gap"):
-            errors.append("raw 步骤必须写 pom_gap（债务要可统计）")
-    ratio = len(raw_steps) / len(steps) if steps else 0
+            errors.append(f"{step['action']} 绕过 POM，必须写 pom_gap")
+    ratio = len(bypass) / len(steps)
     if ratio > max_raw:
-        errors.append(f"raw 占比 {ratio:.0%} 超过预算 {max_raw:.0%}")
-
-    # page 变量声明
-    declared = set((case.get("pages") or {}).keys()) | set(case.get("fixtures") or [])
-    for index, step in enumerate(steps):
-        if step.get("action") in ("call", "expect") and step.get("page"):
-            if step["page"] not in declared:
-                errors.append(f"steps[{index}]: page 变量 {step['page']!r} 未在 pages/fixtures 中声明")
-
-    stats = {"steps": len(steps), "assertions": strong, "raw": len(raw_steps)}
+        errors.append(f"raw/POM 绕过占比 {ratio:.0%} 超过预算 {max_raw:.0%}")
     return errors, stats
 
 
 def check_boundary() -> list[str]:
+    """Working-tree advisory check; OS/tool permissions remain a separate concern."""
     try:
         changed = subprocess.run(
-            ["git", "status", "--porcelain"],
-            capture_output=True, text=True, check=True,
+            ["git", "status", "--porcelain=v1", "-z"],
+            capture_output=True, text=True, encoding="utf-8", check=True,
         ).stdout
-    except Exception as exc:  # noqa: BLE001
-        return [f"跳过边界检查：{exc}"]
-    problems = []
-    for line in changed.splitlines():
-        path = line[3:].strip().strip('"')
-        if not path or path.endswith(".pyc"):
+    except (OSError, subprocess.CalledProcessError) as exc:
+        return [f"边界检查失败：{exc}"]
+    paths = []
+    entries = iter(changed.split("\0"))
+    for entry in entries:
+        if not entry:
             continue
-        if path.startswith(ALLOWED_WRITE_PREFIXES):
-            continue
-        if path.startswith(("pages/", "tests/", "conftest.py")):
-            problems.append(f"越界修改：{path}（只允许新增到 tests/ai_generated/ 或 pages/_ai/）")
-    return problems
+        paths.append(entry[3:])
+        if "R" in entry[:2] or "C" in entry[:2]:
+            paths.append(next(entries, ""))
+    return [
+        f"越界修改：{path}（只允许新增到 tests/ai_generated/ 或 pages/_ai/）"
+        for path in paths
+        if path and not path.endswith(".pyc")
+        and not path.startswith(ALLOWED_WRITE_PREFIXES)
+        and path.startswith(("pages/", "tests/", "conftest.py"))
+    ]
 
 
 def main() -> int:
     if hasattr(sys.stdout, "reconfigure"):
         sys.stdout.reconfigure(encoding="utf-8", errors="replace")
-
     parser = argparse.ArgumentParser()
     parser.add_argument("--cases", default="spec/cases")
     parser.add_argument("--max-raw", type=float, default=0.2)
-    parser.add_argument("--boundary", action="store_true")
+    parser.add_argument("--require-pom", action="store_true", help="强制对所有用例执行 POM 降级策略")
+    parser.add_argument("--boundary", action="store_true", help="检查本地未提交变更，不替代工具权限")
     args = parser.parse_args()
-
+    if not 0 <= args.max_raw <= 1:
+        parser.error("--max-raw must be between 0 and 1")
     directory = Path(args.cases)
-    if not directory.exists():
+    if not directory.is_dir():
         print(f"[lint] 目录不存在：{directory}")
         return 2
+    files = list(iter_cases(directory))
+    if not files:
+        print(f"[lint] 没有用例：{directory}")
+        return 1
 
-    total = 0
     failed = 0
-    for path in iter_cases(directory):
-        total += 1
+    pom_steps = pom_raw = 0
+    for path in files:
         try:
-            case = json.loads(path.read_text(encoding="utf-8"))
-        except json.JSONDecodeError as exc:
-            print(f"[lint] FAIL {path.name}: 非法 JSON（{exc}）")
+            case = read_case(path)
+        except (OSError, ValueError) as exc:
+            print(f"[lint] FAIL {path}: {exc}")
             failed += 1
             continue
-
-        errors, stats = check_case(case, args.max_raw)
+        errors, stats = check_case(case, args.max_raw, require_pom=args.require_pom)
+        if stats["pom"]:
+            pom_steps += stats["steps"]
+            pom_raw += stats["raw"]
         if errors:
             failed += 1
-            print(f"[lint] FAIL {path.name}  ({case.get('id', '?')})")
+            print(f"[lint] FAIL {path}")
             for message in errors:
                 print(f"       - {message}")
         else:
-            print(f"[lint] OK   {path.name}  ({stats['steps']} 步 / {stats['assertions']} 断言 / {stats['raw']} raw)")
-
+            print(f"[lint] OK {path} ({stats['steps']} steps / {stats['assertions']} assertions / {stats['raw']} bypass)")
+    if pom_steps and pom_raw / pom_steps > args.max_raw:
+        failed += 1
+        print(f"[lint] GLOBAL POM bypass {pom_raw / pom_steps:.0%} > {args.max_raw:.0%}")
     if args.boundary:
         problems = check_boundary()
         for message in problems:
             print(f"[lint] BOUNDARY {message}")
-        failed += len([p for p in problems if p.startswith("越界")])
-
-    print(f"\n[lint] {total} 个用例，{failed} 个问题")
-    return 0 if failed == 0 else 1
+        failed += len(problems)
+    print(f"[lint] {len(files)} cases, {failed} problems")
+    return 1 if failed else 0
 
 
 if __name__ == "__main__":

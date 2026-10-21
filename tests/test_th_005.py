@@ -4,7 +4,7 @@ from playwright.sync_api import Page, expect
 
 
 def test_th_005(page: Page, base_url: str) -> None:
-    """TH-005 页脚备案信息与语言切换入口存在"""
+    "TH-005 页脚备案信息与语言切换入口存在"
     page.goto(base_url + "/")
     expect(page.get_by_text("渝ICP备2022001292号")).to_contain_text("渝ICP备2022001292号")
     expect(page.get_by_role("link", name="简体中文", exact=True)).to_be_visible()

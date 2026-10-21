@@ -4,7 +4,7 @@ from playwright.sync_api import Page, expect
 
 
 def test_order_002(page: Page, base_url: str) -> None:
-    """ORDER-002 手机号格式错误时给出可读提示"""
+    "ORDER-002 手机号格式错误时给出可读提示"
     page.goto(base_url + "/demo/login.html")
     page.get_by_label("手机号", exact=True).fill("123")
     page.get_by_test_id("query-submit").click()

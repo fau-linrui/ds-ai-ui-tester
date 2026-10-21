@@ -1,131 +1,722 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://example.local/e2e/case.schema.json",
-  "title": "AI 生成的 UI 自动化用例（意图级）",
+  "title": "AI 生成的 UI 自动化用例（严格契约）",
   "type": "object",
-  "required": ["id", "title", "steps"],
+  "required": [
+    "id",
+    "title",
+    "steps"
+  ],
   "additionalProperties": false,
   "properties": {
-    "id": { "type": "string", "pattern": "^[A-Z][A-Z0-9]*(?:-[A-Z0-9]+)*-[0-9]{3,}$" },
-    "title": { "type": "string", "minLength": 2 },
-    "requirement": { "type": "string", "description": "需求/缺陷追溯 ID" },
+    "id": {
+      "type": "string",
+      "pattern": "^[A-Z][A-Z0-9]*(?:-[A-Z0-9]+)*-[0-9]{3,}$"
+    },
+    "title": {
+      "type": "string",
+      "minLength": 2
+    },
+    "requirement": {
+      "type": "string",
+      "minLength": 1
+    },
     "sources": {
       "type": "array",
-      "items": { "type": "string" },
-      "description": "断言依据（需求号 / 用例号 / 接口文档）。lint 要求至少一条。"
+      "items": {
+        "type": "string",
+        "minLength": 1
+      }
     },
-    "priority": { "enum": ["P0", "P1", "P2", "P3"] },
-    "tags": { "type": "array", "items": { "type": "string" } },
-    "risk": { "type": "string", "description": "这条用例覆盖的风险点，一句话" },
+    "priority": {
+      "enum": [
+        "P0",
+        "P1",
+        "P2",
+        "P3"
+      ]
+    },
+    "tags": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "minLength": 1
+      }
+    },
+    "risk": {
+      "type": "string",
+      "minLength": 1
+    },
+    "mode": {
+      "enum": [
+        "ui",
+        "pom"
+      ],
+      "description": "未指定时，有 pages/POM 调用则为 pom，否则为 ui。项目可用 lint --require-pom 强制 POM 策略。"
+    },
     "fixtures": {
       "type": "array",
-      "items": { "type": "string" },
-      "description": "用例依赖的 fixture 变量名（会被渲染成函数参数）"
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "pattern": "^[a-z_][a-z0-9_]*$"
+      }
     },
     "pages": {
       "type": "object",
-      "additionalProperties": { "type": "string" },
-      "description": "变量名 -> Page 类名。变量名即 fixture 名，用于 call/expect 步骤。"
+      "propertyNames": {
+        "pattern": "^[a-z_][a-z0-9_]*$"
+      },
+      "additionalProperties": {
+        "type": "string",
+        "minLength": 1
+      },
+      "description": "fixture 变量名 -> 现有 Page 类名；不会自动创建 fixture。"
     },
     "routes": {
       "type": "array",
-      "description": "接口 mock（仅渲染器支持时生效）",
       "items": {
         "type": "object",
-        "required": ["url"],
         "additionalProperties": false,
+        "required": [
+          "url"
+        ],
         "properties": {
-          "url": { "type": "string", "description": "page.route 的 glob，例如 **/api/orders**" },
-          "status": { "type": "integer" },
+          "url": {
+            "type": "string",
+            "minLength": 1
+          },
+          "status": {
+            "type": "integer",
+            "minimum": 100,
+            "maximum": 599
+          },
           "json": {}
         }
-      }
+      },
+      "description": "在测试步骤前注册 page.route；status 默认 200，json 默认 {}。fixture 自身的 setup 不在此范围内。"
     },
     "steps": {
       "type": "array",
       "minItems": 1,
-      "items": { "$ref": "#/$defs/step" }
+      "items": {
+        "$ref": "#/$defs/step"
+      }
     }
   },
   "$defs": {
     "target": {
       "type": "object",
       "additionalProperties": false,
-      "description": "语义定位目标。禁止选择器；优先级 testid > role+name > href > label > text。",
       "properties": {
-        "testid": { "type": "string" },
-        "role": { "type": "string" },
-        "name": { "type": "string" },
-        "exact": { "type": "boolean", "description": "name/label 精确匹配，避免子串误匹配" },
-        "href": { "type": "string", "description": "链接地址，用于同名链接消歧" },
-        "label": { "type": "string" },
-        "placeholder": { "type": "string" },
-        "text": { "type": "string" }
-      }
-    },
-    "matcher": {
-      "enum": ["eq", "ne", "gt", "ge", "lt", "le", "contains", "truthy"]
+        "testid": {
+          "type": "string",
+          "minLength": 1
+        },
+        "role": {
+          "type": "string",
+          "minLength": 1
+        },
+        "name": {
+          "type": "string",
+          "minLength": 1
+        },
+        "exact": {
+          "type": "boolean"
+        },
+        "href": {
+          "type": "string",
+          "minLength": 1
+        },
+        "label": {
+          "type": "string",
+          "minLength": 1
+        },
+        "placeholder": {
+          "type": "string",
+          "minLength": 1
+        },
+        "text": {
+          "type": "string",
+          "minLength": 1
+        },
+        "within": {
+          "$ref": "#/$defs/target"
+        }
+      },
+      "anyOf": [
+        {
+          "required": [
+            "testid"
+          ]
+        },
+        {
+          "required": [
+            "role"
+          ]
+        },
+        {
+          "required": [
+            "href"
+          ]
+        },
+        {
+          "required": [
+            "label"
+          ]
+        },
+        {
+          "required": [
+            "placeholder"
+          ]
+        },
+        {
+          "required": [
+            "text"
+          ]
+        }
+      ],
+      "description": "一个语义定位策略，可用 within 指定父区域。href 可以与 role=link/name 联用。禁止 CSS/XPath。"
     },
     "step": {
-      "type": "object",
-      "required": ["action"],
       "oneOf": [
-        { "properties": { "action": { "const": "goto" }, "url": { "type": "string" } }, "required": ["action", "url"] },
-        { "properties": { "action": { "const": "click" }, "target": { "$ref": "#/$defs/target" }, "force": { "type": "boolean" } }, "required": ["action", "target"] },
-        { "properties": { "action": { "const": "fill" }, "target": { "$ref": "#/$defs/target" }, "value": { "type": "string" } }, "required": ["action", "target", "value"] },
-        { "properties": { "action": { "const": "select" }, "target": { "$ref": "#/$defs/target" }, "value": { "type": "string" } }, "required": ["action", "target", "value"] },
-        { "properties": { "action": { "const": "check" }, "target": { "$ref": "#/$defs/target" } }, "required": ["action", "target"] },
-        { "properties": { "action": { "const": "press" }, "target": { "$ref": "#/$defs/target" }, "key": { "type": "string" } }, "required": ["action", "key"] },
-        { "properties": { "action": { "const": "waitFor" }, "target": { "$ref": "#/$defs/target" }, "state": { "enum": ["visible", "hidden", "attached", "detached"] } }, "required": ["action", "target"] },
         {
+          "type": "object",
+          "additionalProperties": false,
           "properties": {
-            "action": { "const": "call" },
-            "page": { "type": "string", "description": "fixture 变量名，须在 pages 或 fixtures 中声明" },
-            "method": { "type": "string" },
-            "args": { "type": "object" }
+            "action": {
+              "const": "goto"
+            },
+            "url": {
+              "type": "string",
+              "minLength": 1
+            }
           },
-          "required": ["action", "page", "method"]
+          "required": [
+            "action",
+            "url"
+          ]
         },
         {
+          "type": "object",
+          "additionalProperties": false,
           "properties": {
-            "action": { "const": "expect" },
-            "page": { "type": "string" },
-            "method": { "type": "string" },
-            "args": { "type": "object" },
-            "matcher": { "$ref": "#/$defs/matcher" },
-            "value": {}
+            "action": {
+              "const": "click"
+            },
+            "target": {
+              "$ref": "#/$defs/target"
+            },
+            "force": {
+              "type": "boolean"
+            },
+            "pom_gap": {
+              "type": "string",
+              "minLength": 1
+            }
           },
-          "required": ["action", "page", "method"]
+          "required": [
+            "action",
+            "target"
+          ]
         },
         {
+          "type": "object",
+          "additionalProperties": false,
           "properties": {
-            "action": { "const": "raw" },
-            "target": { "$ref": "#/$defs/target" },
-            "operation": { "enum": ["click", "fill", "check", "hover", "press"] },
-            "value": { "type": "string" },
-            "pom_gap": { "type": "string", "description": "待补的 POM 方法，用于债务统计" }
+            "action": {
+              "const": "fill"
+            },
+            "target": {
+              "$ref": "#/$defs/target"
+            },
+            "value": {
+              "type": "string"
+            },
+            "pom_gap": {
+              "type": "string",
+              "minLength": 1
+            }
           },
-          "required": ["action", "target"]
+          "required": [
+            "action",
+            "target",
+            "value"
+          ]
         },
-        { "properties": { "action": { "const": "captureNetwork" }, "name": { "type": "string" }, "urlContains": { "type": "string" } }, "required": ["action", "urlContains"] },
-        { "properties": { "action": { "const": "expectNetwork" }, "name": { "type": "string" }, "status": { "type": "integer" }, "equals": {} }, "required": ["action"] },
-        { "properties": { "action": { "const": "expectUrl" }, "contains": { "type": "string" }, "equals": { "type": "string" } }, "required": ["action"] },
         {
+          "type": "object",
+          "additionalProperties": false,
           "properties": {
-            "action": { "const": "expect" },
-            "target": { "$ref": "#/$defs/target" },
-            "assertion": {
+            "action": {
+              "const": "select"
+            },
+            "target": {
+              "$ref": "#/$defs/target"
+            },
+            "value": {
+              "type": "string"
+            },
+            "pom_gap": {
+              "type": "string",
+              "minLength": 1
+            }
+          },
+          "required": [
+            "action",
+            "target",
+            "value"
+          ]
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "action": {
+              "const": "check"
+            },
+            "target": {
+              "$ref": "#/$defs/target"
+            },
+            "pom_gap": {
+              "type": "string",
+              "minLength": 1
+            }
+          },
+          "required": [
+            "action",
+            "target"
+          ]
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "action": {
+              "const": "press"
+            },
+            "target": {
+              "$ref": "#/$defs/target"
+            },
+            "key": {
+              "type": "string",
+              "minLength": 1
+            },
+            "pom_gap": {
+              "type": "string",
+              "minLength": 1
+            }
+          },
+          "required": [
+            "action",
+            "key"
+          ]
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "action": {
+              "const": "waitFor"
+            },
+            "target": {
+              "$ref": "#/$defs/target"
+            },
+            "state": {
+              "enum": [
+                "visible",
+                "hidden",
+                "attached",
+                "detached"
+              ]
+            },
+            "pom_gap": {
+              "type": "string",
+              "minLength": 1
+            }
+          },
+          "required": [
+            "action",
+            "target"
+          ]
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "action": {
+              "const": "call"
+            },
+            "page": {
+              "type": "string",
+              "pattern": "^[a-z_][a-z0-9_]*$"
+            },
+            "method": {
+              "type": "string",
+              "pattern": "^[A-Za-z][A-Za-z0-9_]*$"
+            },
+            "args": {
               "type": "object",
-              "required": ["type"],
-              "properties": {
-                "type": { "enum": ["visible", "hidden", "enabled", "disabled", "text", "value", "count"] },
-                "value": {},
-                "exact": { "type": "boolean" }
+              "propertyNames": {
+                "pattern": "^[A-Za-z_][A-Za-z0-9_]*$"
               }
             }
           },
-          "required": ["action", "target", "assertion"]
+          "required": [
+            "action",
+            "page",
+            "method"
+          ]
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "action": {
+              "const": "expect"
+            },
+            "page": {
+              "type": "string",
+              "pattern": "^[a-z_][a-z0-9_]*$"
+            },
+            "method": {
+              "type": "string",
+              "pattern": "^[A-Za-z][A-Za-z0-9_]*$"
+            },
+            "args": {
+              "type": "object",
+              "propertyNames": {
+                "pattern": "^[A-Za-z_][A-Za-z0-9_]*$"
+              }
+            },
+            "matcher": {
+              "enum": [
+                "eq",
+                "ne",
+                "gt",
+                "ge",
+                "lt",
+                "le",
+                "contains",
+                "truthy"
+              ]
+            },
+            "value": {}
+          },
+          "required": [
+            "action",
+            "page",
+            "method"
+          ],
+          "allOf": [
+            {
+              "if": {
+                "properties": {
+                  "matcher": {
+                    "const": "truthy"
+                  }
+                },
+                "required": [
+                  "matcher"
+                ]
+              },
+              "then": {
+                "not": {
+                  "required": [
+                    "value"
+                  ]
+                }
+              },
+              "else": {
+                "required": [
+                  "value"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "action": {
+              "const": "raw"
+            },
+            "target": {
+              "$ref": "#/$defs/target"
+            },
+            "operation": {
+              "enum": [
+                "click",
+                "fill",
+                "check",
+                "hover",
+                "press"
+              ]
+            },
+            "value": {
+              "type": "string"
+            },
+            "pom_gap": {
+              "type": "string",
+              "minLength": 1
+            }
+          },
+          "required": [
+            "action",
+            "target",
+            "pom_gap"
+          ],
+          "allOf": [
+            {
+              "if": {
+                "properties": {
+                  "operation": {
+                    "enum": [
+                      "fill",
+                      "press"
+                    ]
+                  }
+                },
+                "required": [
+                  "operation"
+                ]
+              },
+              "then": {
+                "required": [
+                  "value"
+                ]
+              },
+              "else": {
+                "not": {
+                  "required": [
+                    "value"
+                  ]
+                }
+              }
+            }
+          ]
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "action": {
+              "const": "captureNetwork"
+            },
+            "name": {
+              "type": "string",
+              "minLength": 1
+            },
+            "urlContains": {
+              "type": "string",
+              "minLength": 1
+            },
+            "method": {
+              "enum": [
+                "GET",
+                "POST",
+                "PUT",
+                "PATCH",
+                "DELETE",
+                "HEAD",
+                "OPTIONS"
+              ]
+            }
+          },
+          "required": [
+            "action",
+            "urlContains"
+          ]
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "action": {
+              "const": "expectNetwork"
+            },
+            "name": {
+              "type": "string",
+              "minLength": 1
+            },
+            "status": {
+              "type": "integer",
+              "minimum": 100,
+              "maximum": 599
+            },
+            "equals": {}
+          },
+          "required": [
+            "action"
+          ]
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "action": {
+              "const": "expectUrl"
+            },
+            "contains": {
+              "type": "string",
+              "minLength": 1
+            },
+            "equals": {
+              "type": "string",
+              "minLength": 1
+            }
+          },
+          "required": [
+            "action"
+          ],
+          "oneOf": [
+            {
+              "required": [
+                "contains"
+              ]
+            },
+            {
+              "required": [
+                "equals"
+              ]
+            }
+          ]
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "action": {
+              "const": "expect"
+            },
+            "target": {
+              "$ref": "#/$defs/target"
+            },
+            "assertion": {
+              "oneOf": [
+                {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "properties": {
+                    "type": {
+                      "const": "visible"
+                    }
+                  },
+                  "required": [
+                    "type"
+                  ]
+                },
+                {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "properties": {
+                    "type": {
+                      "const": "hidden"
+                    }
+                  },
+                  "required": [
+                    "type"
+                  ]
+                },
+                {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "properties": {
+                    "type": {
+                      "const": "enabled"
+                    }
+                  },
+                  "required": [
+                    "type"
+                  ]
+                },
+                {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "properties": {
+                    "type": {
+                      "const": "disabled"
+                    }
+                  },
+                  "required": [
+                    "type"
+                  ]
+                },
+                {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "properties": {
+                    "type": {
+                      "const": "text"
+                    },
+                    "value": {
+                      "type": "string"
+                    },
+                    "exact": {
+                      "type": "boolean"
+                    }
+                  },
+                  "required": [
+                    "type",
+                    "value"
+                  ]
+                },
+                {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "properties": {
+                    "type": {
+                      "const": "value"
+                    },
+                    "value": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "type",
+                    "value"
+                  ]
+                },
+                {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "properties": {
+                    "type": {
+                      "const": "count"
+                    },
+                    "value": {
+                      "type": "integer",
+                      "minimum": 0
+                    }
+                  },
+                  "required": [
+                    "type",
+                    "value"
+                  ]
+                }
+              ]
+            }
+          },
+          "required": [
+            "action",
+            "target",
+            "assertion"
+          ]
         }
+      ]
+    },
+    "matcher": {
+      "enum": [
+        "eq",
+        "ne",
+        "gt",
+        "ge",
+        "lt",
+        "le",
+        "contains",
+        "truthy"
       ]
     }
   }

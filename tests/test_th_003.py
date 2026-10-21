@@ -6,7 +6,7 @@ from playwright.sync_api import Page, expect
 
 
 def test_th_003(page: Page, base_url: str) -> None:
-    """TH-003 顶部导航「问答」跳转正确"""
+    "TH-003 顶部导航「问答」跳转正确"
     page.goto(base_url + "/")
-    page.locator("a[href=\"/questions\"]", has_text="问答").click()
+    page.locator("a[href=\"/questions\"]").and_(page.get_by_role("link", name="问答", exact=True)).click()
     expect(page).to_have_url(re.compile("/questions"))
