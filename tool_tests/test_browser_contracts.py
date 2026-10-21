@@ -2,12 +2,16 @@
 from __future__ import annotations
 
 import http.server
+import json
 import os
+import sys
 import threading
 
 import pytest
 
 from tools.render import render_case
+from tools.harness import main as harness_main
+from tools.harness_io import atomic_json, read_json
 from tools.snapshot import collect_snapshot
 
 pytestmark = [
@@ -102,3 +106,47 @@ def test_snapshot_includes_iframe_context(page):
     data = collect_snapshot(page)
     assert data["complete"]
     assert any("Frame action" in f["ariaSnapshot"] for f in data["frames"])
+
+
+def test_harness_collects_real_snapshot_repairs_target_and_reruns_browser(tmp_path, app_url):
+    """Model is controlled; browser, strict locator failure, trace and repair are real."""
+    case = spec({"saved": True})
+    case["sources"] = ["REQ-BROWSER"]
+    del case["steps"][2]["target"]["within"]  # First execution must fail on duplicate Save buttons.
+    script = '''import json, sys
+request = json.load(sys.stdin)
+role = request['role']
+case = CASE
+if role == 'explorer':
+    assert 'button "Save"' in request['snapshot']['ariaSnapshot']
+    result = {'summary': 'Two Save buttons; one in Edit dialog', 'targets': [], 'warnings': ['scope required']}
+elif role == 'author':
+    if request.get('previous_case'):
+        case = request['previous_case']
+        case['steps'][2]['target']['within'] = {'role': 'dialog', 'name': 'Edit', 'exact': True}
+    result = {'case': case}
+else:
+    assert request['execution']['outcome'] == 'failed'
+    assert any(key.startswith('browser-results/harness-evidence/') for key in request['evidence'])
+    result = {'category': 'case_error', 'summary': 'Actual strict mode duplicate locator', 'evidence': ['junit.xml']}
+print(json.dumps(result))
+'''.replace("CASE", repr(case))
+    (tmp_path / "agent.py").write_text(script, encoding="utf-8")
+    (tmp_path / "source.md").write_text("Save in Edit must POST /api/save and display saved; fixture contract status 201 and JSON saved true.", encoding="utf-8")
+    (tmp_path / "conftest.py").write_text('import os, pytest\n@pytest.fixture\ndef base_url(): return os.environ["BASE_URL"]\n', encoding="utf-8")
+    agents = {role: {"protocol": "json", "command": [sys.executable, str(tmp_path / "agent.py")]}
+              for role in ["explorer", "author", "verifier"]}
+    atomic_json(tmp_path / "config.json", {"version": 1, "test_environment": True, "base_url": app_url, "agents": agents})
+    atomic_json(tmp_path / "tasks.json", {"version": 1, "tasks": [
+        {"id": case["id"], "goal": "Save in Edit dialog", "url": "/",
+         "sources": [{"id": "REQ-BROWSER", "path": "source.md"}]}
+    ]})
+    assert harness_main(["run", "--config", str(tmp_path / "config.json"), "--tasks", str(tmp_path / "tasks.json"),
+                         "--root", str(tmp_path), "--run-id", "browser"]) == 0
+    directory = tmp_path / ".snap/runs/browser/tasks/BROWSER-001"
+    assert 'dialog "Edit"' in read_json(directory / "snapshot.json")["ariaSnapshot"]
+    assert read_json(directory / "attempts/01/execution.json")["outcome"] == "failed"
+    assert list((directory / "attempts/01/browser-results").rglob("trace.zip"))
+    evidence = list((directory / "attempts/01/browser-results/harness-evidence").glob("*.json"))
+    assert evidence and read_json(evidence[0])["snapshot"]["complete"]
+    assert read_json(directory / "attempts/02/execution.json")["outcome"] == "passed"

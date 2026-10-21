@@ -8,6 +8,7 @@
 用户明确要求维护框架工具时，维护者可以修改 tools、schema、tool_tests、配置与文档；
 `tests/**` 仍须通过 renderer 更新。维护者应运行工具回归，并按实际证据报告验证结果。
 当前工具契约与限制见 `docs/COMPILER-CONTRACT.md`。
+自动调度模式见 `docs/HARNESS.md`；使用 Harness 时，角色只返回协议 JSON，文件由 Harness 写入对应运行目录。
 
 ## 你能产出什么
 
@@ -18,6 +19,10 @@
 | 页面地图 | `.snap/*.json` | explorer |
 | 用例 JSON | `spec/cases/*.json` | author |
 | 执行结论 | `.snap/triage.json` | verifier |
+
+Harness 模式下上述产物暂存到 `.snap/runs/<run-id>/tasks/<ID>/`，按 attempt 隔离。
+生成测试仍只由 renderer 产出；Harness 不把模型输出直接写进正式 spec/cases 或 tests。
+评审后再固化。不得通过修改调度状态、执行结果、基线或断言让失败变绿。
 
 `tests/**` 是**生成产物**，永远不要手改。改了就下次生成时被覆盖，而且 CI 里没人知道谁改的。
 
@@ -69,6 +74,9 @@ python -m pytest tests/test_xxx.py -q
 Playwright 的 strict mode 报"resolved to N elements"是**正确行为**，不是 bug。
 
 ## 没有子 agent 时（单 agent 串行模式）
+
+能启动文本模型 CLI / JSON 桥接进程时，可使用 Harness 调度三个独立角色，不要求宿主提供 task/subagent 工具。
+下面的人工阶段流程适用于未接入 Harness 的情况。
 
 不要把三个角色硬塞进一个上下文。改成**阶段闸门**：
 

@@ -6,6 +6,7 @@
 
 > 当前编译器的严格语义、完整生成集合检查与已实现边界见 [docs/COMPILER-CONTRACT.md](docs/COMPILER-CONTRACT.md)。
 > 本文部分实测与 ADR 保留历史背景，不代表尚未验证的能力已完成。
+> 多 Agent 自动调度现已实现独立进程、阶段闸门、有限重试与恢复，当前行为见 [docs/HARNESS.md](docs/HARNESS.md)。
 
 ---
 

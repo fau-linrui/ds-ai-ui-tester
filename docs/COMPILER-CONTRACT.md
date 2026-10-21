@@ -96,6 +96,8 @@ python -m pytest tool_tests/test_browser_contracts.py -q
 CI 分别执行 Python 兼容性、契约 / 生成集合检查和真实 Chromium 回归。
 浏览器回归覆盖同名按钮的区域定位、mock、生效时机、错误响应体与 ARIA / iframe 快照。
 
-多 Agent 调度、持久任务状态、自动四分类和跨会话恢复尚未实现。
-OpenCode 示例提供角色配置；提示词不等于文件权限，`--check` 也不提供工具权限隔离。
+多 Agent 调度、持久任务状态、模型四分类与跨会话恢复现由 [Harness v1](HARNESS.md) 实现。
+它以独立进程调用 explorer / author / verifier，并由代码负责闸门、执行结果与重试决策。
+原 OpenCode 示例仍是人工流程的角色配置；自动模式使用单独的 Harness 示例。
+提示词不等于文件权限，`--check` 与 Harness 的协议检查也不提供 OS 工具权限隔离。
 这轮没有验证真实 EMS 的业务链路，没有增加运行时模型依赖。

@@ -1,0 +1,128 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://ds-ai-ui-tester.local/harness.schema.json",
+  "$defs": {
+    "text": {"type": "string", "minLength": 1},
+    "agent": {
+      "type": "object", "additionalProperties": false,
+      "required": ["protocol", "command"],
+      "properties": {
+        "protocol": {"enum": ["json", "opencode"]},
+        "command": {"type": "array", "minItems": 1, "items": {"$ref": "#/$defs/text"}}
+      }
+    },
+    "config": {
+      "type": "object", "additionalProperties": false,
+      "required": ["version", "test_environment", "base_url", "agents"],
+      "properties": {
+        "version": {"const": 1},
+        "test_environment": {"const": true},
+        "base_url": {"type": "string", "pattern": "^https?://[^/]+"},
+        "max_workers": {"type": "integer", "minimum": 1, "maximum": 16},
+        "max_attempts": {"type": "integer", "minimum": 1, "maximum": 3},
+        "agent_timeout": {"type": "number", "minimum": 0.1, "maximum": 3600},
+        "test_timeout": {"type": "number", "minimum": 0.1, "maximum": 3600},
+        "snapshot_timeout": {"type": "number", "minimum": 0.1, "maximum": 3600},
+        "max_output_bytes": {"type": "integer", "minimum": 1024, "maximum": 67108864},
+        "require_pom": {"type": "boolean"},
+        "browser_channel": {"enum": ["", "chrome", "msedge"]},
+        "storage_state": {"$ref": "#/$defs/text"},
+        "context_files": {"type": "array", "uniqueItems": true, "items": {"$ref": "#/$defs/text"}},
+        "pytest_args": {"type": "array", "items": {"$ref": "#/$defs/text"}},
+        "agents": {
+          "type": "object", "additionalProperties": false,
+          "required": ["explorer", "author", "verifier"],
+          "properties": {
+            "explorer": {"$ref": "#/$defs/agent"},
+            "author": {"$ref": "#/$defs/agent"},
+            "verifier": {"$ref": "#/$defs/agent"}
+          }
+        }
+      }
+    },
+    "tasks": {
+      "type": "object", "additionalProperties": false, "required": ["version", "tasks"],
+      "properties": {
+        "version": {"const": 1},
+        "tasks": {"type": "array", "minItems": 1, "items": {"$ref": "#/$defs/task"}}
+      }
+    },
+    "task": {
+      "type": "object", "additionalProperties": false,
+      "required": ["id", "goal", "url", "sources"],
+      "properties": {
+        "id": {"type": "string", "pattern": "^[A-Z][A-Z0-9]*(?:-[A-Z0-9]+)*-[0-9]{3,}$"},
+        "goal": {"$ref": "#/$defs/text"},
+        "url": {"$ref": "#/$defs/text"},
+        "snapshot": {"$ref": "#/$defs/text"},
+        "seed_case": {"$ref": "#/$defs/text"},
+        "sources": {
+          "type": "array", "minItems": 1,
+          "items": {
+            "type": "object", "additionalProperties": false, "required": ["id", "path"],
+            "properties": {"id": {"$ref": "#/$defs/text"}, "path": {"$ref": "#/$defs/text"}}
+          }
+        }
+      }
+    },
+    "blocked": {
+      "type": "object", "additionalProperties": false, "required": ["blocked"],
+      "properties": {
+        "blocked": {
+          "type": "object", "additionalProperties": false, "required": ["reason", "needed"],
+          "properties": {
+            "reason": {"$ref": "#/$defs/text"},
+            "needed": {"type": "array", "minItems": 1, "items": {"$ref": "#/$defs/text"}}
+          }
+        }
+      }
+    },
+    "explorer": {"oneOf": [{"$ref": "#/$defs/explorer_result"}, {"$ref": "#/$defs/blocked"}]},
+    "author": {"oneOf": [{"$ref": "#/$defs/author_result"}, {"$ref": "#/$defs/blocked"}]},
+    "verifier": {"oneOf": [{"$ref": "#/$defs/verifier_result"}, {"$ref": "#/$defs/blocked"}]},
+    "explorer_result": {
+      "type": "object", "additionalProperties": false, "required": ["summary", "targets", "warnings"],
+      "properties": {
+        "summary": {"$ref": "#/$defs/text"},
+        "targets": {"type": "array", "items": {"type": "object"}},
+        "warnings": {"type": "array", "items": {"$ref": "#/$defs/text"}}
+      }
+    },
+    "author_result": {
+      "type": "object", "additionalProperties": false, "required": ["case"],
+      "properties": {"case": {"type": "object"}}
+    },
+    "verifier_result": {
+      "type": "object", "additionalProperties": false, "required": ["category", "summary", "evidence"],
+      "properties": {
+        "category": {"enum": ["product_bug", "case_error", "env", "flaky"]},
+        "summary": {"$ref": "#/$defs/text"},
+        "evidence": {"type": "array", "minItems": 1, "uniqueItems": true, "items": {"$ref": "#/$defs/text"}}
+      }
+    },
+    "state": {
+      "type": "object", "additionalProperties": false,
+      "required": ["version", "id", "stage", "status", "attempt", "artifacts", "events", "inflight"],
+      "properties": {
+        "version": {"const": 1},
+        "id": {"$ref": "#/$defs/text"},
+        "stage": {"enum": ["snapshot", "explore", "author", "gate", "execute", "triage", "done"]},
+        "status": {"enum": ["pending", "running", "interrupted", "passed", "blocked", "exhausted"]},
+        "attempt": {"type": "integer", "minimum": 1, "maximum": 3},
+        "category": {"enum": [null, "product_bug", "case_error", "env", "flaky"]},
+        "summary": {"type": "string"},
+        "artifacts": {"type": "object", "additionalProperties": {"type": "string", "pattern": "^[0-9a-f]{64}$"}},
+        "events": {"type": "array", "items": {"type": "object"}},
+        "inflight": {
+          "oneOf": [
+            {"type": "null"},
+            {
+              "type": "object", "additionalProperties": false, "required": ["stage", "attempt", "at"],
+              "properties": {"stage": {"$ref": "#/$defs/text"}, "attempt": {"type": "integer"}, "at": {"$ref": "#/$defs/text"}}
+            }
+          ]
+        }
+      }
+    }
+  }
+}

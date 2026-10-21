@@ -1,5 +1,9 @@
 # AGENT-CAPABILITIES.md —— 换任何 agent 都要过这张表
 
+> 下表描述让 Agent 自行操作工具的人工 / 原生分派流程。
+> 使用 [Harness](docs/HARNESS.md) 时，shell、文件写入、浏览器与阶段推进由 Python 调度器持有；
+> 文本模型只需通过 OpenCode JSONL 或通用 JSON 进程协议返回结构化结果，不必拥有上述工具。
+
 这套框架不绑定 opencode，也不绑定 DSH。它只要求 agent 提供下面 6 项能力中的**前 3 项**。
 把你的自研 agent 对着这张表核一遍，缺哪项就看到对应的降级方案。
 
