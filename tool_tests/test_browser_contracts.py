@@ -133,7 +133,7 @@ print(json.dumps(result))
 '''.replace("CASE", repr(case))
     (tmp_path / "agent.py").write_text(script, encoding="utf-8")
     (tmp_path / "source.md").write_text("Save in Edit must POST /api/save and display saved; fixture contract status 201 and JSON saved true.", encoding="utf-8")
-    (tmp_path / "conftest.py").write_text('import os, pytest\n@pytest.fixture\ndef base_url(): return os.environ["BASE_URL"]\n', encoding="utf-8")
+    (tmp_path / "conftest.py").write_text('import os, pytest\n@pytest.fixture(scope="session")\ndef base_url(): return os.environ["BASE_URL"]\n', encoding="utf-8")
     agents = {role: {"protocol": "json", "command": [sys.executable, str(tmp_path / "agent.py")]}
               for role in ["explorer", "author", "verifier"]}
     atomic_json(tmp_path / "config.json", {"version": 1, "test_environment": True, "base_url": app_url, "agents": agents})
