@@ -27,6 +27,7 @@
 7. **失败必须分类**：`product_bug` / `case_error` / `env` / `flaky`。只有 `case_error` 允许回流给 author 重写。
 8. **重试上限 3 次。** 同一用例连续 3 次仍失败，停下，把现场（snapshot + trace + console）写进 `triage.json`，等人。
 9. **不许声称"已修复"。** 你只能声称"已重新生成，等待执行验证"。
+10. **POM 优先于定位器。** 能写成 `call` 就不要写 `raw`；`raw` 必须带 `pom_gap`，且全局占比不得超过 20%（`lint` 会拦）。
 
 ## 工作顺序
 
@@ -38,6 +39,9 @@ python tools/preflight.py
 python tools/snapshot.py --url %BASE_URL%/your/page --out .snap/page.json --wait "[data-testid=root]"
 
 # 2. 基于快照写 spec/cases/xxx.json（只写意图，不写选择器）
+
+# 2.5 静态闸门：不通过就不要渲染
+python tools/lint.py --cases spec/cases
 
 # 3. 渲染成可执行代码
 python tools/render.py --all spec/cases

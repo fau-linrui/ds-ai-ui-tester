@@ -6,6 +6,10 @@ from pages.base_page import BasePage
 class AlarmCenterPage(BasePage):
     """告警中心。"""
 
+    def open(self) -> None:
+        """进入告警中心。"""
+        self.page.goto("/ems/alarm")
+
     def filter_by_level(self, level: str) -> None:
         """按告警等级筛选。"""
         self.page.get_by_role("combobox", name="告警等级").select_option(level)

@@ -106,6 +106,8 @@ UI 自动化拆开是四件事：**感知 → 决策 → 执行 → 判定**。�
 | `tools/preflight.py` | 环境自检，退出码即结论 | 人 / 维护者 |
 | `tools/index_pom.py` | AST 扫描既有仓库，产出 POM/manifest 清单 | 人 / 维护者 |
 | `tools/gap_report.py` | 覆盖率、POM 缺口、技术债报告 | 人 / 维护者 |
+| `tools/lint.py` | 用例静态闸门（结构/断言强度/sources/raw 预算/越界） | 人 / 维护者 |
+| `tool_tests/` | 工具链自身的测试（渲染器是单点故障） | 人 / 维护者 |
 | `tools/serve.py` | 零依赖静态服务器（演示 / 本地调试） | 人 / 维护者 |
 | `conftest.py` | `base_url` / `AUTH_STATE` 两个 fixture | 人 |
 | `spec/case.schema.json` | 用例契约，改这里等于改语言 | 人 |
@@ -363,8 +365,9 @@ npm i -D @playwright/mcp
 | v0.1 | 快照 + 渲染 + 用例契约 | 完成 |
 | v0.2 | 环境自检、登录态、单 agent 降级、能力核对表 | 完成 |
 | v0.3 | 迁移到 pytest + Playwright (Python)；真实站点 5/5 验证 | 完成 |
-| v0.3 | 失败四分类（triage）、CI 接入 | 待做 |
-| v0.4 | 覆盖率 / 变更影响面反馈，增量选靶 | 待做 |
+| v0.4 | POM 感知渲染（call/fixtures/raw）、静态闸门 lint、工具链测试 | 完成 |
+| v0.5 | 失败四分类（triage）、CI 接入 | 待做 |
+| v0.6 | 覆盖率 / 变更影响面反馈，增量选靶 | 待做 |
 | v1.0 | 多项目复用、指标看板、变异测试 | 规划 |
 
 ---

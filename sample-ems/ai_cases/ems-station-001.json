@@ -4,9 +4,12 @@
   "requirement": "REQ-EMS-201",
   "priority": "P1",
   "sources": ["REQ-EMS-201"],
+  "fixtures": ["station_page", "report_page"],
+  "pages": { "station_page": "StationPage", "report_page": "ReportPage" },
   "steps": [
-    { "action": "call", "page": "StationPage", "method": "open" },
-    { "action": "call", "page": "StationPage", "method": "search_by_keyword", "args": { "keyword": "华东" } },
-    { "action": "call", "page": "ReportPage", "method": "export_as_pdf" }
+    { "action": "call", "page": "station_page", "method": "open" },
+    { "action": "call", "page": "station_page", "method": "search_by_keyword", "args": { "keyword": "华东" } },
+    { "action": "expect", "page": "station_page", "method": "result_count", "matcher": "gt", "value": 0 },
+    { "action": "call", "page": "report_page", "method": "export_as_pdf" }
   ]
 }

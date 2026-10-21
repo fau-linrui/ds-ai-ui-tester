@@ -79,12 +79,13 @@ def main() -> int:
         if cases_dir.exists():
             for case in load_cases(cases_dir):
                 case_count += 1
+                page_map = case.get("pages") or {}
                 for step in case.get("steps", []):
                     action = step.get("action")
-                    if action == "call":
+                    if action in ("call", "expect") and step.get("page") and step.get("method"):
                         call_steps += 1
-                        page_name = step.get("page", "")
-                        method = step.get("method", "")
+                        page_name = page_map.get(step["page"], step["page"])
+                        method = step["method"]
                         if page_name not in caps:
                             gaps[(page_name, "(整个类缺失)")] += 1
                         elif method not in caps[page_name]:

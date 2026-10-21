@@ -86,6 +86,12 @@ python tools/index_pom.py --root D:\work\ems-autotest --out manifest.json
 
 # 2. 覆盖率 + 缺口 + 技术债报告
 python tools/gap_report.py --manifest manifest.json --cases spec/cases --out gap.md
+
+# 3. 用例静态闸门（结构 / 断言强度 / sources / raw 预算 / 越界）
+python tools/lint.py --cases spec/cases --boundary
+
+# 4. 工具链自身的测试
+python -m pytest tool_tests -q
 ```
 
 输出四类信息：Page 覆盖率、POM 内部债务（`find_element` / `sleep` / 页面内断言）、
@@ -113,6 +119,7 @@ python tools/collect_evidence.py --root <你的仓库> --out evidence.md   # 生
 | `tools/preflight.py` | 环境自检，退出码即结论 |
 | `tools/index_pom.py` | AST 扫描既有仓库，产出 POM/manifest 清单 |
 | `tools/gap_report.py` | 覆盖率、缺口、技术债报告 |
+| `tools/lint.py` | 用例静态闸门：结构、断言强度、sources、raw 预算、越界 |
 | `tools/collect_evidence.py` | 生成给外部 AI 的仓库证据包 |
 | `tools/serve.py` | 零依赖静态服务器 |
 | `prompts/` | 两轮对照评估的提示词 |

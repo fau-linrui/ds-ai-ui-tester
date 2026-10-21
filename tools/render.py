@@ -60,6 +60,47 @@ def goto_url(url: str) -> str:
     return f"base_url + {q(url)}"
 
 
+MATCHERS = {
+    "eq": "==",
+    "ne": "!=",
+    "gt": ">",
+    "ge": ">=",
+    "lt": "<",
+    "le": "<=",
+}
+
+
+def page_var(step: dict) -> str:
+    """call / expect 里的 page 字段就是 fixture 变量名（snake_case）。"""
+    name = step.get("page")
+    if not name:
+        raise ValueError(f"step 缺少 page 字段：{step!r}")
+    if name != name.lower():
+        raise ValueError(f"page 必须是 snake_case 变量名（如 alarm_center），实际：{name!r}")
+    return name
+
+
+def call_expr(step: dict) -> str:
+    var = page_var(step)
+    method = step.get("method")
+    if not method:
+        raise ValueError(f"call 缺少 method：{step!r}")
+    args = step.get("args") or {}
+    kwargs = ", ".join(f"{k}={q(v)}" for k, v in args.items())
+    return f"{var}.{method}({kwargs})"
+
+
+def step_uses_page(step: dict) -> bool:
+    action = step.get("action")
+    if action in {"goto", "expectUrl", "captureNetwork", "raw"}:
+        return True
+    if action in {"click", "fill", "select", "check", "press", "waitFor"}:
+        return "target" in step
+    if action == "expect":
+        return "target" in step
+    return False
+
+
 def render_step(step: dict, indent: str, nets: dict[str, str]) -> list[str]:
     action = step.get("action")
     pad = indent
@@ -89,6 +130,34 @@ def render_step(step: dict, indent: str, nets: dict[str, str]) -> list[str]:
     if action == "expectNetwork":
         var = nets.get(step.get("name", ""), "resp_1")
         return [f"{pad}assert {var}.value.status == {int(step.get('status', 200))}"]
+    if action == "call":
+        return [f"{pad}{call_expr(step)}"]
+
+    if action == "raw":
+        # 逃生舱：POM 缺口未补时的降级写法，必须留 TODO 供统计
+        target = locator(step["target"])
+        operation = step.get("operation", "click")
+        value = step.get("value")
+        if operation == "fill" and value is not None:
+            call = f"{target}.fill({q(value)})"
+        elif operation == "press" and value is not None:
+            call = f"{target}.press({q(value)})"
+        else:
+            call = f"{target}.{operation}()"
+        gap = step.get("pom_gap", "未标注")
+        return [f"{pad}# TODO(pom-gap): {gap}", f"{pad}{call}"]
+
+    if action == "expect" and step.get("page"):
+        expr = call_expr(step)
+        matcher = step.get("matcher", "eq")
+        if matcher == "truthy":
+            return [f"{pad}assert {expr}"]
+        if matcher == "contains":
+            return [f"{pad}assert {q(step.get('value'))} in {expr}"]
+        if matcher not in MATCHERS:
+            raise ValueError(f"未支持的 matcher：{matcher}")
+        return [f"{pad}assert {expr} {MATCHERS[matcher]} {q(step.get('value'))}"]
+
     if action == "expect":
         target = locator(step["target"])
         assertion = step.get("assertion") or {}
@@ -150,16 +219,34 @@ def render_case(case: dict, rel: str) -> str:
     func = "test_" + re.sub(r"[^0-9a-zA-Z]+", "_", str(case["id"])).strip("_").lower()
     title = str(case.get("title", "")).replace('"', "'")
 
+    # 参数：page / base_url 按需，其余来自 case.pages 与 case.fixtures
+    ordered: list[str] = []
+    if any(step_uses_page(s) for s in steps):
+        ordered.append("page")
+    if any(s.get("action") == "goto" and not re.match(r"^https?://", s["url"]) for s in steps):
+        ordered.append("base_url")
+    for name in list(case.get("fixtures") or []) + list((case.get("pages") or {}).keys()):
+        if name not in ordered:
+            ordered.append(name)
+
+    typed = {"page": "page: Page", "base_url": "base_url: str"}
+    signature = ", ".join(typed.get(name, name) for name in ordered)
+
     lines: list[str] = []
     lines.append(HEADER.format(rel=rel))
     lines.append(f"# case: {case['id']}  requirement: {case.get('requirement', '-')}  priority: {case.get('priority', '-')}")
+    if case.get("sources"):
+        lines.append(f"# sources: {', '.join(str(s) for s in case['sources'])}")
     if needs_re:
         lines.append("import re")
         lines.append("")
-    lines.append("from playwright.sync_api import Page, expect")
+    if "page" in ordered:
+        lines.append("from playwright.sync_api import Page, expect")
+    elif "expect" in "\n".join(body):
+        lines.append("from playwright.sync_api import expect")
     lines.append("")
     lines.append("")
-    lines.append(f"def {func}(page: Page, base_url: str) -> None:")
+    lines.append(f"def {func}({signature}) -> None:")
     lines.append(f'    """{case["id"]} {title}"""')
     lines.extend(body)
     lines.append("")
@@ -173,6 +260,7 @@ def main() -> int:
     parser.add_argument("case", nargs="?", help="单个用例 JSON")
     parser.add_argument("--all", dest="all_dir", help="目录：批量生成")
     parser.add_argument("--out", default="")
+    parser.add_argument("--out-dir", default="tests", help="批量生成的输出目录")
     parser.add_argument("--check", action="store_true", help="只校验生成物是否被手改")
     args = parser.parse_args()
 
@@ -190,7 +278,7 @@ def main() -> int:
             except ValueError:
                 rel_path = path.name
             content = render_case(case, rel_path)
-            target = Path("tests") / f"test_{re.sub(r'[^0-9a-zA-Z]+', '_', case['id']).strip('_').lower()}.py"
+            target = Path(args.out_dir) / f"test_{re.sub(r'[^0-9a-zA-Z]+', '_', case['id']).strip('_').lower()}.py"
 
             if args.check:
                 existing = target.read_text(encoding="utf-8") if target.exists() else None

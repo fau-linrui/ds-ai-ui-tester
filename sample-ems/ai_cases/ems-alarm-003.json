@@ -4,9 +4,13 @@
   "requirement": "REQ-EMS-112",
   "priority": "P1",
   "sources": ["REQ-EMS-112", "TC-EMS-0871"],
+  "fixtures": ["logged_in", "alarm_center"],
+  "pages": { "alarm_center": "AlarmCenterPage" },
   "steps": [
-    { "action": "call", "page": "AlarmCenterPage", "method": "filter_by_level", "args": { "level": "严重" } },
-    { "action": "expect", "page": "AlarmCenterPage", "method": "row_count", "matcher": "gt", "value": 0 },
+    { "action": "call", "page": "alarm_center", "method": "open" },
+    { "action": "call", "page": "alarm_center", "method": "filter_by_level", "args": { "level": "严重" } },
+    { "action": "expect", "page": "alarm_center", "method": "row_count", "matcher": "gt", "value": 0 },
+    { "action": "call", "page": "alarm_center", "method": "export" },
     { "action": "raw", "target": { "role": "button", "name": "刷新" }, "pom_gap": "AlarmCenterPage.refresh" }
   ]
 }

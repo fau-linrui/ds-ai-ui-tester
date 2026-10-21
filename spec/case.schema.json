@@ -6,28 +6,38 @@
   "required": ["id", "title", "steps"],
   "additionalProperties": false,
   "properties": {
-    "id": { "type": "string", "pattern": "^[A-Z][A-Z0-9]+-[0-9]{3,}$" },
+    "id": { "type": "string", "pattern": "^[A-Z][A-Z0-9]*(?:-[A-Z0-9]+)*-[0-9]{3,}$" },
     "title": { "type": "string", "minLength": 2 },
-    "requirement": { "type": "string", "description": "需求/缺陷追溯 ID，必填于正式用例" },
+    "requirement": { "type": "string", "description": "需求/缺陷追溯 ID" },
+    "sources": {
+      "type": "array",
+      "items": { "type": "string" },
+      "description": "断言依据（需求号 / 用例号 / 接口文档）。lint 要求至少一条。"
+    },
     "priority": { "enum": ["P0", "P1", "P2", "P3"] },
     "tags": { "type": "array", "items": { "type": "string" } },
     "risk": { "type": "string", "description": "这条用例覆盖的风险点，一句话" },
     "fixtures": {
+      "type": "array",
+      "items": { "type": "string" },
+      "description": "用例依赖的 fixture 变量名（会被渲染成函数参数）"
+    },
+    "pages": {
       "type": "object",
-      "additionalProperties": false,
-      "properties": {
-        "routes": {
-          "type": "array",
-          "items": {
-            "type": "object",
-            "required": ["url"],
-            "additionalProperties": false,
-            "properties": {
-              "url": { "type": "string", "description": "page.route 的 glob，例如 **/api/orders**" },
-              "status": { "type": "integer" },
-              "json": {}
-            }
-          }
+      "additionalProperties": { "type": "string" },
+      "description": "变量名 -> Page 类名。变量名即 fixture 名，用于 call/expect 步骤。"
+    },
+    "routes": {
+      "type": "array",
+      "description": "接口 mock（仅渲染器支持时生效）",
+      "items": {
+        "type": "object",
+        "required": ["url"],
+        "additionalProperties": false,
+        "properties": {
+          "url": { "type": "string", "description": "page.route 的 glob，例如 **/api/orders**" },
+          "status": { "type": "integer" },
+          "json": {}
         }
       }
     },
@@ -41,17 +51,20 @@
     "target": {
       "type": "object",
       "additionalProperties": false,
-      "description": "语义定位目标。禁止选择器；优先级 testid > role+name > label > text。",
+      "description": "语义定位目标。禁止选择器；优先级 testid > role+name > href > label > text。",
       "properties": {
         "testid": { "type": "string" },
         "role": { "type": "string" },
         "name": { "type": "string" },
-        "exact": { "type": "boolean", "description": "name 精确匹配；用于避免『社区』命中『社区学堂』这类子串误匹配" },
-        "href": { "type": "string", "description": "链接地址，用于同名链接消歧（如顶部导航「问答」与热门节点「问答」）" },
+        "exact": { "type": "boolean", "description": "name/label 精确匹配，避免子串误匹配" },
+        "href": { "type": "string", "description": "链接地址，用于同名链接消歧" },
         "label": { "type": "string" },
         "placeholder": { "type": "string" },
         "text": { "type": "string" }
       }
+    },
+    "matcher": {
+      "enum": ["eq", "ne", "gt", "ge", "lt", "le", "contains", "truthy"]
     },
     "step": {
       "type": "object",
@@ -64,6 +77,36 @@
         { "properties": { "action": { "const": "check" }, "target": { "$ref": "#/$defs/target" } }, "required": ["action", "target"] },
         { "properties": { "action": { "const": "press" }, "target": { "$ref": "#/$defs/target" }, "key": { "type": "string" } }, "required": ["action", "key"] },
         { "properties": { "action": { "const": "waitFor" }, "target": { "$ref": "#/$defs/target" }, "state": { "enum": ["visible", "hidden", "attached", "detached"] } }, "required": ["action", "target"] },
+        {
+          "properties": {
+            "action": { "const": "call" },
+            "page": { "type": "string", "description": "fixture 变量名，须在 pages 或 fixtures 中声明" },
+            "method": { "type": "string" },
+            "args": { "type": "object" }
+          },
+          "required": ["action", "page", "method"]
+        },
+        {
+          "properties": {
+            "action": { "const": "expect" },
+            "page": { "type": "string" },
+            "method": { "type": "string" },
+            "args": { "type": "object" },
+            "matcher": { "$ref": "#/$defs/matcher" },
+            "value": {}
+          },
+          "required": ["action", "page", "method"]
+        },
+        {
+          "properties": {
+            "action": { "const": "raw" },
+            "target": { "$ref": "#/$defs/target" },
+            "operation": { "enum": ["click", "fill", "check", "hover", "press"] },
+            "value": { "type": "string" },
+            "pom_gap": { "type": "string", "description": "待补的 POM 方法，用于债务统计" }
+          },
+          "required": ["action", "target"]
+        },
         { "properties": { "action": { "const": "captureNetwork" }, "name": { "type": "string" }, "urlContains": { "type": "string" } }, "required": ["action", "urlContains"] },
         { "properties": { "action": { "const": "expectNetwork" }, "name": { "type": "string" }, "status": { "type": "integer" }, "equals": {} }, "required": ["action"] },
         { "properties": { "action": { "const": "expectUrl" }, "contains": { "type": "string" }, "equals": { "type": "string" } }, "required": ["action"] },
